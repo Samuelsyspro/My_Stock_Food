@@ -28,17 +28,36 @@ class ItemService {
     await _box.put(item.id, item);
   }
 
+  /// Descobre a chave real do item no Hive.
+  /// Itens antigos (criados pela lista de compras com add()) têm chave
+  /// numérica, e os novos usam o próprio id como chave.
+  dynamic _chaveDe(String id) {
+    if (_box.containsKey(id)) return id;
+    for (final k in _box.keys) {
+      if (_box.get(k)?.id == id) return k;
+    }
+    return null;
+  }
+
   Future<void> update(Item item) async {
     item.atualizadoEm = DateTime.now();
-    await _box.put(item.id, item);
+    if (item.isInBox) {
+      // Já está no Hive: salva na chave em que ele realmente está
+      await item.save();
+    } else {
+      await _box.put(item.id, item);
+    }
   }
 
   Future<void> delete(String id) async {
-    await _box.delete(id);
+    final chave = _chaveDe(id);
+    if (chave != null) await _box.delete(chave);
   }
 
   Future<void> ajustarQuantidade(String id, double delta) async {
-    final item = _box.get(id);
+    final chave = _chaveDe(id);
+    if (chave == null) return;
+    final item = _box.get(chave);
     if (item == null) return;
     item.quantidade = (item.quantidade + delta).clamp(0, double.infinity);
     item.atualizadoEm = DateTime.now();

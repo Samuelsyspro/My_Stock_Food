@@ -66,16 +66,19 @@ class _DispensaScreenState extends State<DispensaScreen> {
                             label: 'Itens',
                             valor: total.toString(),
                             cor: Colors.blue,
+                            onTap: () => _abrirLista(context), // todos os itens
                           ),
                           _ResumoItem(
                             label: 'Vencidos',
                             valor: vencidos.toString(),
                             cor: Colors.red,
+                            onTap: () => _abrirLista(context, filtro: 'vencidos'),
                           ),
                           _ResumoItem(
                             label: 'Vence em 30d',
                             valor: emBreve.toString(),
                             cor: Colors.orange,
+                            onTap: () => _abrirLista(context, filtro: 'em_breve'),
                           ),
                         ],
                       ),
@@ -143,8 +146,8 @@ class _DispensaScreenState extends State<DispensaScreen> {
     );
   }
 
-  void _abrirLista(BuildContext context, {String? categoria, String? filtro}) {
-    Navigator.push(
+  void _abrirLista(BuildContext context, {String? categoria, String? filtro}) async {
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ItemListScreen(
@@ -153,6 +156,8 @@ class _DispensaScreenState extends State<DispensaScreen> {
         ),
       ),
     );
+    // Ao voltar, recalcula resumo, alertas e contagem por categoria
+    if (mounted) setState(() {});
   }
 
   void _adicionarItem(BuildContext context) async {
@@ -193,19 +198,32 @@ class _ResumoItem extends StatelessWidget {
   final String label;
   final String valor;
   final Color cor;
+  final VoidCallback onTap;
 
-  const _ResumoItem({required this.label, required this.valor, required this.cor});
+  const _ResumoItem({
+    required this.label,
+    required this.valor,
+    required this.cor,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          valor,
-          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: cor),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Column(
+          children: [
+            Text(
+              valor,
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: cor),
+            ),
+            Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          ],
         ),
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-      ],
+      ),
     );
   }
 }

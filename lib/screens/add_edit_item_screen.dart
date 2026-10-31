@@ -64,27 +64,36 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
 
     final qtd = double.tryParse(_qtdCtrl.text.replaceAll(',', '.')) ?? 0;
 
-    if (_isEdit) {
-      final item = widget.item!;
-      item.nome = _nomeCtrl.text.trim();
-      item.categoria = _categoria;
-      item.quantidade = qtd;
-      item.unidade = _unidadeCtrl.text.trim();
-      item.validade = _validade;
-      item.localizacao = _localCtrl.text.trim().isEmpty ? null : _localCtrl.text.trim();
-      item.notas = _notasCtrl.text.trim().isEmpty ? null : _notasCtrl.text.trim();
-      await _service.update(item);
-    } else {
-      final novo = _service.criarNovo(
-        nome: _nomeCtrl.text.trim(),
-        categoria: _categoria,
-        quantidade: qtd,
-        unidade: _unidadeCtrl.text.trim(),
-        validade: _validade,
-        localizacao: _localCtrl.text.trim().isEmpty ? null : _localCtrl.text.trim(),
-        notas: _notasCtrl.text.trim().isEmpty ? null : _notasCtrl.text.trim(),
-      );
-      await _service.add(novo);
+    try {
+      if (_isEdit) {
+        final item = widget.item!;
+        item.nome = _nomeCtrl.text.trim();
+        item.categoria = _categoria;
+        item.quantidade = qtd;
+        item.unidade = _unidadeCtrl.text.trim();
+        item.validade = _validade;
+        item.localizacao = _localCtrl.text.trim().isEmpty ? null : _localCtrl.text.trim();
+        item.notas = _notasCtrl.text.trim().isEmpty ? null : _notasCtrl.text.trim();
+        await _service.update(item);
+      } else {
+        final novo = _service.criarNovo(
+          nome: _nomeCtrl.text.trim(),
+          categoria: _categoria,
+          quantidade: qtd,
+          unidade: _unidadeCtrl.text.trim(),
+          validade: _validade,
+          localizacao: _localCtrl.text.trim().isEmpty ? null : _localCtrl.text.trim(),
+          notas: _notasCtrl.text.trim().isEmpty ? null : _notasCtrl.text.trim(),
+        );
+        await _service.add(novo);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao salvar: $e')),
+        );
+      }
+      return;
     }
 
     if (mounted) {

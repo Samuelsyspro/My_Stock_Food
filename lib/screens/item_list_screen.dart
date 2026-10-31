@@ -3,6 +3,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import '../models/item.dart';
 import '../services/item_service.dart';
+import '../utils/constants.dart';
 import 'add_edit_item_screen.dart';
 
 class ItemListScreen extends StatefulWidget {
@@ -25,6 +26,15 @@ class _ItemListScreenState extends State<ItemListScreen> {
     return widget.categoria ?? 'Todos os Itens';
   }
 
+  // Nas listas de vencidos / vence em 30d só se consulta, não se adiciona
+  bool get _permiteAdicionar => widget.filtro == null;
+
+  String get _mensagemVazia {
+    if (widget.filtro == 'vencidos') return 'Nenhum item vencido';
+    if (widget.filtro == 'em_breve') return 'Nenhum item vence em 30 dias';
+    return 'Nenhum item encontrado';
+  }
+
   List<Item> _filtrar(List<Item> todos) {
     if (widget.filtro == 'vencidos') {
       return todos.where((i) => i.estaVencido).toList();
@@ -44,10 +54,11 @@ class _ItemListScreenState extends State<ItemListScreen> {
       appBar: AppBar(
         title: Text(_titulo),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => _adicionar(context),
-          ),
+          if (_permiteAdicionar)
+            IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: () => _adicionar(context),
+            ),
         ],
       ),
       body: ValueListenableBuilder(
@@ -63,15 +74,17 @@ class _ItemListScreenState extends State<ItemListScreen> {
                   Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey[600]),
                   const SizedBox(height: 16),
                   Text(
-                    'Nenhum item encontrado',
+                    _mensagemVazia,
                     style: TextStyle(color: Colors.grey[400], fontSize: 16),
                   ),
-                  const SizedBox(height: 8),
-                  ElevatedButton.icon(
-                    onPressed: () => _adicionar(context),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Adicionar item'),
-                  ),
+                  if (_permiteAdicionar) ...[
+                    const SizedBox(height: 8),
+                    ElevatedButton.icon(
+                      onPressed: () => _adicionar(context),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Adicionar item'),
+                    ),
+                  ],
                 ],
               ),
             );
@@ -87,7 +100,8 @@ class _ItemListScreenState extends State<ItemListScreen> {
                 dateFormat: _dateFormat,
                 onEdit: () => _editar(context, item),
                 onDelete: () => _confirmarExclusao(context, item),
-                onAjustar: (delta) => _service.ajustarQuantidade(item.id, delta),
+                onMais: () => _service.ajustarQuantidade(item.id, 1),
+                onMenos: () => _diminuir(context, item),
               );
             },
           );
@@ -103,6 +117,8 @@ class _ItemListScreenState extends State<ItemListScreen> {
         builder: (_) => AddEditItemScreen(categoriaInicial: widget.categoria),
       ),
     );
+    // Ao voltar, força a lista a se redesenhar com os dados atuais
+    if (mounted) setState(() {});
   }
 
   void _editar(BuildContext context, Item item) async {
@@ -112,6 +128,39 @@ class _ItemListScreenState extends State<ItemListScreen> {
         builder: (_) => AddEditItemScreen(item: item),
       ),
     );
+    // Ao voltar, força a lista a se redesenhar (ex.: item mudou de categoria)
+    if (mounted) setState(() {});
+  }
+
+  /// Diminui 1 da quantidade. Se chegaria a 0, pergunta se quer excluir.
+  Future<void> _diminuir(BuildContext context, Item item) async {
+    if (item.quantidade - 1 > 0) {
+      await _service.ajustarQuantidade(item.id, -1);
+      return;
+    }
+
+    final excluir = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Quantidade chegou a zero'),
+        content: Text('Deseja excluir "${item.nome}" do estoque?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Excluir'),
+          ),
+        ],
+      ),
+    );
+
+    if (excluir == true) {
+      await _service.delete(item.id);
+    }
   }
 
   void _confirmarExclusao(BuildContext context, Item item) {
@@ -144,14 +193,16 @@ class _ItemTile extends StatelessWidget {
   final DateFormat dateFormat;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
-  final Function(double) onAjustar;
+  final VoidCallback onMais;
+  final VoidCallback onMenos;
 
   const _ItemTile({
     required this.item,
     required this.dateFormat,
     required this.onEdit,
     required this.onDelete,
-    required this.onAjustar,
+    required this.onMais,
+    required this.onMenos,
   });
 
   @override
@@ -171,6 +222,13 @@ class _ItemTile extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: CircleAvatar(
+          backgroundColor: CategoriasApp.corDe(item.categoria).withValues(alpha: 0.2),
+          child: Icon(
+            CategoriasApp.iconeDe(item.categoria),
+            color: CategoriasApp.corDe(item.categoria),
+          ),
+        ),
         title: Row(
           children: [
             Expanded(
@@ -211,25 +269,23 @@ class _ItemTile extends StatelessWidget {
               ),
           ],
         ),
-        trailing: PopupMenuButton<String>(
-          onSelected: (value) {
-            if (value == 'edit') onEdit();
-            if (value == 'delete') onDelete();
-            if (value == '+1') onAjustar(1);
-            if (value == '-1') onAjustar(-1);
-          },
-          itemBuilder: (context) => [
-            const PopupMenuItem(value: '+1', child: Text('+1 unidade')),
-            const PopupMenuItem(value: '-1', child: Text('-1 unidade')),
-            const PopupMenuDivider(),
-            const PopupMenuItem(value: 'edit', child: Text('Editar')),
-            const PopupMenuItem(
-              value: 'delete',
-              child: Text('Excluir', style: TextStyle(color: Colors.red)),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              tooltip: 'Remover 1',
+              icon: const Icon(Icons.remove_circle_outline),
+              onPressed: onMenos,
+            ),
+            IconButton(
+              tooltip: 'Adicionar 1',
+              icon: const Icon(Icons.add_circle_outline),
+              onPressed: onMais,
             ),
           ],
         ),
         onTap: onEdit,
+        onLongPress: onDelete, // segurar o item abre a confirmação de exclusão
       ),
     );
   }
