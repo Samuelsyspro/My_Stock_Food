@@ -1,4 +1,4 @@
-# Prep Manager – Gerenciador de Estoque para Crises
+# My_Stock_Food – Gerenciador de Estoque para Crises
 
 App Android 100% **offline** para controlar o estoque de sobrevivência (água, alimentos, combustível, médico, higiene, ferramentas etc.).
 
