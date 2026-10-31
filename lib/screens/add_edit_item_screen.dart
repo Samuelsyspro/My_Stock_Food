@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/item.dart';
 import '../services/item_service.dart';
+import '../utils/constants.dart';
 
 class AddEditItemScreen extends StatefulWidget {
   final Item? item;
@@ -27,17 +28,9 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
   String _categoria = 'Alimentos';
   DateTime? _validade;
 
-  static const categorias = [
-    'Água',
-    'Alimentos',
-    'Combustível',
-    'Médico',
-    'Higiene',
-    'Ferramentas',
-    'Outros',
-  ];
+  static const categorias = CategoriasApp.nomes;
 
-  static const unidadesComuns = ['un', 'kg', 'g', 'L', 'ml', 'caixa', 'pct', 'saco'];
+  static const unidadesComuns = UnidadesApp.nomes;
 
   bool get _isEdit => widget.item != null;
 

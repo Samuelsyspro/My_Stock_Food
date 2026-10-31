@@ -5,18 +5,18 @@ import '../services/item_service.dart';
 import 'add_edit_item_screen.dart';
 import 'item_list_screen.dart';
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class DispensaScreen extends StatefulWidget {
+  const DispensaScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<DispensaScreen> createState() => _DispensaScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _DispensaScreenState extends State<DispensaScreen> {
   final ItemService _service = ItemService();
 
   static const categorias = [
-    {'nome': 'Água', 'icone': Icons.water_drop, 'cor': Color(0xFF0288D1)},
+    {'nome': 'Bebidas', 'icone': Icons.liquor, 'cor': Color(0xFF0288D1)},
     {'nome': 'Alimentos', 'icone': Icons.restaurant, 'cor': Color(0xFF388E3C)},
     {'nome': 'Combustível', 'icone': Icons.local_gas_station, 'cor': Color(0xFFF57C00)},
     {'nome': 'Médico', 'icone': Icons.medical_services, 'cor': Color(0xFFD32F2F)},

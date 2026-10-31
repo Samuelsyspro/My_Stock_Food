@@ -1,5 +1,10 @@
-// Adapter manual para Hive (não precisa de build_runner)
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
 part of 'item.dart';
+
+// **************************************************************************
+// TypeAdapterGenerator
+// **************************************************************************
 
 class ItemAdapter extends TypeAdapter<Item> {
   @override

@@ -11,7 +11,7 @@ class Item extends HiveObject {
   late String nome;
 
   @HiveField(2)
-  late String categoria; // Agua, Alimentos, Combustivel, Medico, Higiene, Ferramentas, Outros
+  late String categoria; // bebidas, Alimentos, Combustivel, Medico, Higiene, Ferramentas, Outros
 
   @HiveField(3)
   late double quantidade;
