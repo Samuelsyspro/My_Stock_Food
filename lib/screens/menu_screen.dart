@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart'; // Para pegar a versão
+import 'package:prep_manager/screens/backup_screen.dart';
 import 'package:prep_manager/screens/dispensa_screen.dart';
 import 'package:prep_manager/screens/shopping_list_screen.dart';
 
@@ -22,6 +23,7 @@ class _MenuScreenState extends State<MenuScreen> {
 
   Future<void> _loadVersion() async {
     final packageInfo = await PackageInfo.fromPlatform();
+    if (!mounted) return;
     setState(() {
       _version = '${packageInfo.version}+${packageInfo.buildNumber}';
     });
@@ -75,6 +77,19 @@ class _MenuScreenState extends State<MenuScreen> {
                         context,
                         MaterialPageRoute(
                             builder: (context) => const ShoppingListScreen()),
+                      );
+                    },
+                  ),
+                  _buildMenuCard(
+                    context,
+                    title: 'Ajustes',
+                    icon: Icons.settings,
+                    color: Colors.blue,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const BackupScreen()),
                       );
                     },
                   ),

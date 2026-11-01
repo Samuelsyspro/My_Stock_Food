@@ -1,11 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 
-import 'models/item.dart';
-import 'models/shopping_item.dart';
-import 'screens/splash_screen.dart';
+import 'package:prep_manager/models/item.dart';
+import 'package:prep_manager/models/shopping_item.dart';
+import 'package:prep_manager/screens/splash_screen.dart';
+import 'package:prep_manager/services/notification_service.dart';
 
 void main() async {
   // 1. Inicializa o Flutter (apenas uma vez)
@@ -22,9 +25,13 @@ void main() async {
   // 4. Abre as caixas
   await Hive.openBox<Item>('items');
   await Hive.openBox<ShoppingItem>('shopping_list');
+  await Hive.openBox('settings'); // ajustes simples (ex.: avisos ligados)
 
   // 5. Inicia o app
   runApp(const PrepManagerApp());
+
+  // Avisos de validade (sem esperar: se falhar, o app segue normal)
+  unawaited(NotificationService.instance.iniciar());
   
   // 6. Libera a splash nativa (a tela do Flutter já está pronta)
   FlutterNativeSplash.remove();

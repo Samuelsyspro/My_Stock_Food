@@ -27,13 +27,14 @@ class ItemAdapter extends TypeAdapter<Item> {
       notas: fields[7] as String?,
       criadoEm: fields[8] as DateTime,
       atualizadoEm: fields[9] as DateTime?,
+      quantidadeMinima: fields[10] as double?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Item obj) {
     writer
-      ..writeByte(10)
+      ..writeByte(11)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -53,7 +54,9 @@ class ItemAdapter extends TypeAdapter<Item> {
       ..writeByte(8)
       ..write(obj.criadoEm)
       ..writeByte(9)
-      ..write(obj.atualizadoEm);
+      ..write(obj.atualizadoEm)
+      ..writeByte(10)
+      ..write(obj.quantidadeMinima);
   }
 
   @override

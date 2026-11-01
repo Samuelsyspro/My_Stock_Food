@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import '../models/item.dart';
-import '../services/item_service.dart';
-import 'add_edit_item_screen.dart';
-import 'item_list_screen.dart';
+import 'package:prep_manager/models/item.dart';
+import 'package:prep_manager/screens/add_edit_item_screen.dart';
+import 'package:prep_manager/screens/item_list_screen.dart';
+import 'package:prep_manager/services/item_service.dart';
+import 'package:prep_manager/utils/constants.dart';
+import 'package:prep_manager/widgets/alerta_card.dart';
+import 'package:prep_manager/widgets/categoria_card.dart';
+import 'package:prep_manager/widgets/resumo_item.dart';
 
 class DispensaScreen extends StatefulWidget {
   const DispensaScreen({super.key});
@@ -14,16 +18,6 @@ class DispensaScreen extends StatefulWidget {
 
 class _DispensaScreenState extends State<DispensaScreen> {
   final ItemService _service = ItemService();
-
-  static const categorias = [
-    {'nome': 'Bebidas', 'icone': Icons.liquor, 'cor': Color(0xFF0288D1)},
-    {'nome': 'Alimentos', 'icone': Icons.restaurant, 'cor': Color(0xFF388E3C)},
-    {'nome': 'Combustível', 'icone': Icons.local_gas_station, 'cor': Color(0xFFF57C00)},
-    {'nome': 'Médico', 'icone': Icons.medical_services, 'cor': Color(0xFFD32F2F)},
-    {'nome': 'Higiene', 'icone': Icons.soap, 'cor': Color(0xFF7B1FA2)},
-    {'nome': 'Ferramentas', 'icone': Icons.build, 'cor': Color(0xFF455A64)},
-    {'nome': 'Outros', 'icone': Icons.inventory_2, 'cor': Color(0xFF5D4037)},
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -62,19 +56,19 @@ class _DispensaScreenState extends State<DispensaScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          _ResumoItem(
+                          ResumoItem(
                             label: 'Itens',
                             valor: total.toString(),
                             cor: Colors.blue,
                             onTap: () => _abrirLista(context), // todos os itens
                           ),
-                          _ResumoItem(
+                          ResumoItem(
                             label: 'Vencidos',
                             valor: vencidos.toString(),
                             cor: Colors.red,
                             onTap: () => _abrirLista(context, filtro: 'vencidos'),
                           ),
-                          _ResumoItem(
+                          ResumoItem(
                             label: 'Vence em 30d',
                             valor: emBreve.toString(),
                             cor: Colors.orange,
@@ -91,13 +85,13 @@ class _DispensaScreenState extends State<DispensaScreen> {
               // Alertas
               if (vencidos > 0 || emBreve > 0) ...[
                 if (vencidos > 0)
-                  _AlertaCard(
+                  AlertaCard(
                     titulo: '$vencidos item(ns) vencido(s)',
                     cor: Colors.red,
                     onTap: () => _abrirLista(context, filtro: 'vencidos'),
                   ),
                 if (emBreve > 0)
-                  _AlertaCard(
+                  AlertaCard(
                     titulo: '$emBreve item(ns) vencem em 30 dias',
                     cor: Colors.orange,
                     onTap: () => _abrirLista(context, filtro: 'em_breve'),
@@ -111,7 +105,7 @@ class _DispensaScreenState extends State<DispensaScreen> {
               ),
               const SizedBox(height: 12),
 
-              // Grid de categorias
+              // Grid de categorias (nomes, ícones e cores vêm do constants.dart)
               GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -121,16 +115,15 @@ class _DispensaScreenState extends State<DispensaScreen> {
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
                 ),
-                itemCount: categorias.length,
+                itemCount: CategoriasApp.nomes.length,
                 itemBuilder: (context, index) {
-                  final cat = categorias[index];
-                  final count = _service.getByCategoria(cat['nome'] as String).length;
-                  return _CategoriaCard(
-                    nome: cat['nome'] as String,
-                    icone: cat['icone'] as IconData,
-                    cor: cat['cor'] as Color,
-                    quantidade: count,
-                    onTap: () => _abrirLista(context, categoria: cat['nome'] as String),
+                  final nome = CategoriasApp.nomes[index];
+                  return CategoriaCard(
+                    nome: nome,
+                    icone: CategoriasApp.iconeDe(nome),
+                    cor: CategoriasApp.corDe(nome),
+                    quantidade: _service.getByCategoria(nome).length,
+                    onTap: () => _abrirLista(context, categoria: nome),
                   );
                 },
               ),
@@ -189,106 +182,6 @@ class _DispensaScreenState extends State<DispensaScreen> {
             child: const Text('Fechar'),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ResumoItem extends StatelessWidget {
-  final String label;
-  final String valor;
-  final Color cor;
-  final VoidCallback onTap;
-
-  const _ResumoItem({
-    required this.label,
-    required this.valor,
-    required this.cor,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: Column(
-          children: [
-            Text(
-              valor,
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: cor),
-            ),
-            Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AlertaCard extends StatelessWidget {
-  final String titulo;
-  final Color cor;
-  final VoidCallback onTap;
-
-  const _AlertaCard({required this.titulo, required this.cor, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: cor.withValues(alpha: 0.15),
-      child: ListTile(
-        leading: Icon(Icons.warning_amber_rounded, color: cor),
-        title: Text(titulo, style: TextStyle(color: cor, fontWeight: FontWeight.w600)),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: onTap,
-      ),
-    );
-  }
-}
-
-class _CategoriaCard extends StatelessWidget {
-  final String nome;
-  final IconData icone;
-  final Color cor;
-  final int quantidade;
-  final VoidCallback onTap;
-
-  const _CategoriaCard({
-    required this.nome,
-    required this.icone,
-    required this.cor,
-    required this.quantidade,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icone, size: 32, color: cor),
-              const SizedBox(height: 8),
-              Text(
-                nome,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-                textAlign: TextAlign.center,
-              ),
-              Text(
-                '$quantidade item(ns)',
-                style: TextStyle(fontSize: 12, color: Colors.grey[400]),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

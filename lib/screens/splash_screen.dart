@@ -30,7 +30,7 @@ class _SplashScreenState extends State<SplashScreen> {
       backgroundColor: const Color(0xFF07A35D),
       body: Center(
         child: Image.asset(
-          'assets/Inicial2.png', // CUIDADO AQUI!
+          'assets/Inicial2.png', // o nome precisa ser igual ao do arquivo (maiúsculas contam no Android)
           fit: BoxFit.cover,
           width: double.infinity,
           height: double.infinity,

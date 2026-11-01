@@ -21,25 +21,27 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    
-    signingConfigs {
-    create("release") {
-        keyAlias = keystoreProperties.getProperty("keyAlias")
-        keyPassword = keystoreProperties.getProperty("keyPassword")
-        storePassword = keystoreProperties.getProperty("storePassword")
-        
-        // A correção está aqui: extrai o valor e faz o cast para String
-        val storeFilePath = keystoreProperties.getProperty("storeFile")
-        if (storeFilePath != null) {
-            storeFile = file(storeFilePath)
-        }
+        // Necessário para as notificações (flutter_local_notifications)
+        isCoreLibraryDesugaringEnabled = true
     }
-}
+
+    signingConfigs {
+        create("release") {
+            keyAlias = keystoreProperties.getProperty("keyAlias")
+            keyPassword = keystoreProperties.getProperty("keyPassword")
+            storePassword = keystoreProperties.getProperty("storePassword")
+
+            // A correção está aqui: extrai o valor e faz o cast para String
+            val storeFilePath = keystoreProperties.getProperty("storeFile")
+            if (storeFilePath != null) {
+                storeFile = file(storeFilePath)
+            }
+        }
     }
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.prep_manager"
+           applicationId = "com.sams.prep_manager"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -70,4 +72,9 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // Necessário para as notificações (flutter_local_notifications)
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

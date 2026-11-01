@@ -20,8 +20,8 @@ class ShoppingItemAdapter extends TypeAdapter<ShoppingItem> {
       name: fields[0] as String,
       quantity: fields[1] as int,
       isBought: fields[2] as bool,
-      categoria: fields[3] as String,
-      unidade: fields[4] as String,
+      categoria: fields[3] == null ? 'Outros' : fields[3] as String,
+      unidade: fields[4] == null ? 'un' : fields[4] as String,
     );
   }
 

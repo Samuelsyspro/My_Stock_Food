@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../models/item.dart';
-import '../services/item_service.dart';
-import '../utils/constants.dart';
+import 'package:prep_manager/models/item.dart';
+import 'package:prep_manager/services/item_service.dart';
+import 'package:prep_manager/utils/constants.dart';
+import 'package:prep_manager/utils/helpers.dart';
 
 class AddEditItemScreen extends StatefulWidget {
   final Item? item;
@@ -22,6 +23,7 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
   late TextEditingController _nomeCtrl;
   late TextEditingController _qtdCtrl;
   late TextEditingController _unidadeCtrl;
+  late TextEditingController _minimoCtrl;
   late TextEditingController _localCtrl;
   late TextEditingController _notasCtrl;
 
@@ -40,12 +42,20 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
     final item = widget.item;
     _nomeCtrl = TextEditingController(text: item?.nome ?? '');
     _qtdCtrl = TextEditingController(
-      text: item != null ? item.quantidade.toString() : '1',
+      text: item != null ? formatarQuantidade(item.quantidade) : '1',
     );
     _unidadeCtrl = TextEditingController(text: item?.unidade ?? 'un');
+    _minimoCtrl = TextEditingController(
+      text: item?.quantidadeMinima != null
+          ? formatarQuantidade(item!.quantidadeMinima!)
+          : '',
+    );
     _localCtrl = TextEditingController(text: item?.localizacao ?? '');
     _notasCtrl = TextEditingController(text: item?.notas ?? '');
-    _categoria = item?.categoria ?? widget.categoriaInicial ?? 'Alimentos';
+
+    // Se a categoria salva não estiver na lista (dado antigo), usa "Outros"
+    final inicial = item?.categoria ?? widget.categoriaInicial ?? 'Alimentos';
+    _categoria = categorias.contains(inicial) ? inicial : 'Outros';
     _validade = item?.validade;
   }
 
@@ -54,15 +64,26 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
     _nomeCtrl.dispose();
     _qtdCtrl.dispose();
     _unidadeCtrl.dispose();
+    _minimoCtrl.dispose();
     _localCtrl.dispose();
     _notasCtrl.dispose();
     super.dispose();
   }
 
+  double? _lerNumero(String texto) =>
+      double.tryParse(texto.trim().replaceAll(',', '.'));
+
   Future<void> _salvar() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final qtd = double.tryParse(_qtdCtrl.text.replaceAll(',', '.')) ?? 0;
+    final qtd = _lerNumero(_qtdCtrl.text) ?? 0;
+
+    // Estoque mínimo vazio (ou 0) = sem alerta
+    final minimoDigitado = _lerNumero(_minimoCtrl.text);
+    final minimo =
+        (minimoDigitado != null && minimoDigitado > 0) ? minimoDigitado : null;
+
+    var foiParaListaDeCompras = false;
 
     try {
       if (_isEdit) {
@@ -71,21 +92,23 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
         item.categoria = _categoria;
         item.quantidade = qtd;
         item.unidade = _unidadeCtrl.text.trim();
+        item.quantidadeMinima = minimo;
         item.validade = _validade;
         item.localizacao = _localCtrl.text.trim().isEmpty ? null : _localCtrl.text.trim();
         item.notas = _notasCtrl.text.trim().isEmpty ? null : _notasCtrl.text.trim();
-        await _service.update(item);
+        foiParaListaDeCompras = await _service.update(item);
       } else {
         final novo = _service.criarNovo(
           nome: _nomeCtrl.text.trim(),
           categoria: _categoria,
           quantidade: qtd,
           unidade: _unidadeCtrl.text.trim(),
+          quantidadeMinima: minimo,
           validade: _validade,
           localizacao: _localCtrl.text.trim().isEmpty ? null : _localCtrl.text.trim(),
           notas: _notasCtrl.text.trim().isEmpty ? null : _notasCtrl.text.trim(),
         );
-        await _service.add(novo);
+        foiParaListaDeCompras = await _service.add(novo);
       }
     } catch (e) {
       if (mounted) {
@@ -97,6 +120,16 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
     }
 
     if (mounted) {
+      if (foiParaListaDeCompras) {
+        // O aviso continua na tela anterior depois que esta fecha
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '"${_nomeCtrl.text.trim()}" está no estoque mínimo e foi para a lista de compras',
+            ),
+          ),
+        );
+      }
       Navigator.pop(context, true);
     }
   }
@@ -171,7 +204,7 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     validator: (v) {
                       if (v == null || v.isEmpty) return 'Obrigatório';
-                      if (double.tryParse(v.replaceAll(',', '.')) == null) return 'Número inválido';
+                      if (_lerNumero(v) == null) return 'Número inválido';
                       return null;
                     },
                   ),
@@ -197,6 +230,24 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
                         onPressed: () => setState(() => _unidadeCtrl.text = u),
                       ))
                   .toList(),
+            ),
+            const SizedBox(height: 16),
+
+            TextFormField(
+              controller: _minimoCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Estoque mínimo (opcional)',
+                helperText:
+                    'Ao chegar nesse valor, o item vai para a lista de compras',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.notifications_active_outlined),
+              ),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return null;
+                if (_lerNumero(v) == null) return 'Número inválido';
+                return null;
+              },
             ),
             const SizedBox(height: 16),
 

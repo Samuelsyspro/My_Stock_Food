@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:prep_manager/models/item.dart'; // Modelo da dispensa
+import 'package:prep_manager/models/item.dart';
 import 'package:prep_manager/models/shopping_item.dart';
+import 'package:prep_manager/services/item_service.dart';
 import 'package:prep_manager/utils/constants.dart';
+import 'package:prep_manager/utils/helpers.dart';
 
 class ShoppingListScreen extends StatelessWidget {
   const ShoppingListScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Abre as caixas do Hive
     final shoppingBox = Hive.box<ShoppingItem>('shopping_list');
-    final pantryBox = Hive.box<Item>('items'); // Caixa da Dispensa
 
     return Scaffold(
       appBar: AppBar(
@@ -33,14 +33,16 @@ class ShoppingListScreen extends StatelessWidget {
             itemCount: box.length,
             itemBuilder: (context, index) {
               final item = box.getAt(index)!;
+              final cor = CategoriasApp.corDe(item.categoria);
 
               return CheckboxListTile(
+                secondary: Icon(CategoriasApp.iconeDe(item.categoria), color: cor),
                 title: Text(item.name),
                 subtitle: Text('Qtd: ${item.quantity} ${item.unidade}'),
                 value: item.isBought,
                 onChanged: (bool? value) async {
                   if (value != true) return;
-                  await _marcarComoComprado(context, item, pantryBox);
+                  await _marcarComoComprado(context, item);
                 },
               );
             },
@@ -55,47 +57,17 @@ class ShoppingListScreen extends StatelessWidget {
   }
 
   /// Passa o item comprado para a Dispensa e remove da lista de compras.
-  Future<void> _marcarComoComprado(
-    BuildContext context,
-    ShoppingItem item,
-    Box<Item> pantryBox,
-  ) async {
+  /// Se já existir na Dispensa um item com o mesmo nome, categoria e unidade,
+  /// apenas soma a quantidade (sem criar outro item).
+  Future<void> _marcarComoComprado(BuildContext context, ShoppingItem item) async {
     final nome = item.name;
 
-    // Procura um item igual na Dispensa: mesmo nome, categoria e unidade
-    // (ignorando maiúsculas/minúsculas e espaços nas pontas)
-    String norm(String s) => s.trim().toLowerCase();
-
-    Item? itemExistente;
-    for (final i in pantryBox.values) {
-      if (norm(i.nome) == norm(nome) &&
-          norm(i.categoria) == norm(item.categoria) &&
-          norm(i.unidade) == norm(item.unidade)) {
-        itemExistente = i;
-        break;
-      }
-    }
-
-    if (itemExistente != null) {
-      // Já existe um igual: apenas soma a quantidade, sem criar outro item
-      itemExistente.quantidade += item.quantity.toDouble();
-      itemExistente.atualizadoEm = DateTime.now();
-      await itemExistente.save();
-    } else {
-      // Não existe: cria um novo, usando o id como chave (igual ao ItemService)
-      final id = DateTime.now().millisecondsSinceEpoch.toString();
-      await pantryBox.put(
-        id,
-        Item(
-          id: id,
-          nome: nome,
-          categoria: item.categoria,
-          quantidade: item.quantity.toDouble(),
-          unidade: item.unidade,
-          criadoEm: DateTime.now(),
-        ),
-      );
-    }
+    await ItemService().adicionarOuSomar(
+      nome: nome,
+      categoria: item.categoria,
+      unidade: item.unidade,
+      quantidade: item.quantity.toDouble(),
+    );
 
     // Remove da lista de compras
     await item.delete();
@@ -110,8 +82,12 @@ class ShoppingListScreen extends StatelessWidget {
 
   // Janela para adicionar item
   void _showAddItemDialog(BuildContext context, Box<ShoppingItem> box) {
-    final nameController = TextEditingController();
     final quantityController = TextEditingController(text: '1');
+    // O campo de nome é criado pelo Autocomplete; guardamos o controlador aqui
+    TextEditingController? nameController;
+
+    // Itens que já existem na Dispensa (usados como sugestão)
+    final sugestoes = ItemService().getAll();
 
     // Variáveis para guardar a escolha do usuário
     String selectedCategory = 'Alimentos';
@@ -129,11 +105,37 @@ class ShoppingListScreen extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    TextField(
-                      controller: nameController,
-                      textCapitalization: TextCapitalization.sentences,
-                      decoration:
-                          const InputDecoration(labelText: 'Nome do produto'),
+                    // Nome com sugestões da Dispensa
+                    Autocomplete<Item>(
+                      displayStringForOption: (i) => i.nome,
+                      optionsBuilder: (TextEditingValue valor) {
+                        final termo = normalizar(valor.text);
+                        if (termo.isEmpty) return const Iterable<Item>.empty();
+                        return sugestoes
+                            .where((i) => normalizar(i.nome).contains(termo));
+                      },
+                      onSelected: (Item escolhido) {
+                        // Aproveita a categoria e a unidade do item da Dispensa
+                        setState(() {
+                          if (CategoriasApp.nomes.contains(escolhido.categoria)) {
+                            selectedCategory = escolhido.categoria;
+                          }
+                          if (UnidadesApp.nomes.contains(escolhido.unidade)) {
+                            selectedUnit = escolhido.unidade;
+                          }
+                        });
+                      },
+                      fieldViewBuilder:
+                          (context, controller, focusNode, onFieldSubmitted) {
+                        nameController = controller;
+                        return TextField(
+                          controller: controller,
+                          focusNode: focusNode,
+                          textCapitalization: TextCapitalization.sentences,
+                          decoration:
+                              const InputDecoration(labelText: 'Nome do produto'),
+                        );
+                      },
                     ),
                     TextField(
                       controller: quantityController,
@@ -143,7 +145,9 @@ class ShoppingListScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     // Dropdown de Categoria
+                    // (a key faz o campo se atualizar quando uma sugestão é escolhida)
                     DropdownButtonFormField<String>(
+                      key: ValueKey('categoria-$selectedCategory'),
                       initialValue: selectedCategory,
                       decoration: const InputDecoration(labelText: 'Categoria'),
                       items: CategoriasApp.nomes
@@ -156,6 +160,7 @@ class ShoppingListScreen extends StatelessWidget {
                     const SizedBox(height: 16),
                     // Dropdown de Unidade
                     DropdownButtonFormField<String>(
+                      key: ValueKey('unidade-$selectedUnit'),
                       initialValue: selectedUnit,
                       decoration: const InputDecoration(labelText: 'Unidade'),
                       items: UnidadesApp.nomes
@@ -174,7 +179,7 @@ class ShoppingListScreen extends StatelessWidget {
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    final name = nameController.text.trim();
+                    final name = nameController?.text.trim() ?? '';
                     final qty = int.tryParse(quantityController.text) ?? 1;
 
                     if (name.isNotEmpty) {
