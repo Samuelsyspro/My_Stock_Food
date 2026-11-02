@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:hive/hive.dart';
 import 'package:prep_manager/models/item.dart';
 import 'package:prep_manager/models/shopping_item.dart';
+import 'package:prep_manager/services/categoria_service.dart';
 import 'package:prep_manager/utils/helpers.dart';
 
 /// Resultado de uma restauração de backup.
@@ -11,12 +12,14 @@ class ResultadoImportacao {
   final int itensAtualizados;
   final int comprasAdicionadas;
   final int ignorados;
+  final int categoriasAdicionadas;
 
   const ResultadoImportacao({
     required this.itensAdicionados,
     required this.itensAtualizados,
     required this.comprasAdicionadas,
     required this.ignorados,
+    this.categoriasAdicionadas = 0,
   });
 }
 
@@ -31,6 +34,7 @@ class BackupService {
       'app': 'prep_manager',
       'versao': 1,
       'geradoEm': DateTime.now().toIso8601String(),
+      'categorias': CategoriaService().listar().map((c) => c.toMap()).toList(),
       'itens': _itens.values.map((i) => i.toMap()).toList(),
       'compras': _compras.values.map((c) => c.toMap()).toList(),
     };
@@ -38,6 +42,7 @@ class BackupService {
   }
 
   /// Restaura um backup. Não apaga nada do que já existe:
+  /// - categorias criadas pelo usuário que faltam são recriadas;
   /// - item com o mesmo id é atualizado; os demais são adicionados;
   /// - compra igual (nome, categoria e unidade) não é duplicada.
   /// Lança [FormatException] se o texto não for um backup válido.
@@ -56,6 +61,22 @@ class BackupService {
     var atualizados = 0;
     var compras = 0;
     var ignorados = 0;
+    var categoriasNovas = 0;
+    final categorias = CategoriaService();
+
+    // Categorias primeiro, para os itens já encontrarem o lugar deles
+    final listaCategorias = decodificado['categorias'];
+    if (listaCategorias is List) {
+      for (final bruto in listaCategorias) {
+        try {
+          final c = CategoriaPersonalizada.fromMap(
+              Map<String, dynamic>.from(bruto as Map));
+          if (await categorias.restaurar(c)) categoriasNovas++;
+        } catch (_) {
+          ignorados++;
+        }
+      }
+    }
 
     final listaItens = decodificado['itens'];
     if (listaItens is List) {
@@ -70,6 +91,9 @@ class BackupService {
               break;
             }
           }
+
+          // Backup antigo (sem lista de categorias): cria a categoria que faltar
+          if (await categorias.garantir(novo.categoria)) categoriasNovas++;
 
           if (chave != null) {
             await _itens.put(chave, novo);
@@ -111,6 +135,7 @@ class BackupService {
       itensAtualizados: atualizados,
       comprasAdicionadas: compras,
       ignorados: ignorados,
+      categoriasAdicionadas: categoriasNovas,
     );
   }
 }

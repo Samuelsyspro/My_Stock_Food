@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:prep_manager/services/backup_service.dart';
+import 'package:prep_manager/services/fundo_service.dart';
 import 'package:prep_manager/services/item_service.dart';
 import 'package:prep_manager/services/notification_service.dart';
+import 'package:prep_manager/widgets/fundo_scaffold.dart';
+import 'package:prep_manager/widgets/vidro.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-/// Ajustes: avisos de validade, backup, restauração e manutenção dos dados.
 class BackupScreen extends StatefulWidget {
   const BackupScreen({super.key});
 
@@ -15,12 +18,34 @@ class BackupScreen extends StatefulWidget {
 class _BackupScreenState extends State<BackupScreen> {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Ajustes')),
+    return FundoScaffold(
+      appBar: AppBar(
+        centerTitle: true, // Centraliza o título
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.settings, // Ícone de engrenagem para Ajustes
+              color: Color(0xFF07A35D), // O verde padrão do seu app
+              size: 26,
+            ),
+            const SizedBox(width: 8), // Espaço entre o ícone e o texto
+            Text(
+              'Ajustes',
+              style: GoogleFonts.rochester(
+                fontWeight: FontWeight.bold,
+                fontSize: 22,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ],
+        ),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Card(
+          Vidro(
+            margin: const EdgeInsets.symmetric(vertical: 4),
             child: Column(
               children: [
                 SwitchListTile(
@@ -51,6 +76,26 @@ class _BackupScreenState extends State<BackupScreen> {
                   onTap: () => NotificationService.instance.enviarTeste(),
                 ),
               ],
+            ),
+          ),
+          Vidro(
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            child: SwitchListTile(
+              contentPadding: const EdgeInsets.all(16),
+              secondary:
+                  const Icon(Icons.wallpaper, size: 36, color: Colors.teal),
+              title: const Text(
+                'Imagem de fundo',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: const Text(
+                'Uma imagem diferente a cada vez que o app é aberto.',
+              ),
+              value: FundoService.ativo,
+              onChanged: (valor) async {
+                await FundoService.definirAtivo(valor);
+                if (mounted) setState(() {});
+              },
             ),
           ),
           _Opcao(
@@ -165,6 +210,7 @@ class _BackupScreenState extends State<BackupScreen> {
         'Backup restaurado: ${r.itensAdicionados} item(ns) novo(s), '
         '${r.itensAtualizados} atualizado(s), '
         '${r.comprasAdicionadas} na lista de compras'
+        '${r.categoriasAdicionadas > 0 ? ', ${r.categoriasAdicionadas} categoria(s)' : ''}'
         '${r.ignorados > 0 ? ', ${r.ignorados} ignorado(s)' : ''}.',
       );
     } on FormatException catch (e) {
@@ -225,11 +271,13 @@ class _Opcao extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return Vidro(
+      margin: const EdgeInsets.symmetric(vertical: 4),
       child: ListTile(
         contentPadding: const EdgeInsets.all(16),
         leading: Icon(icone, size: 36, color: cor),
-        title: Text(titulo, style: const TextStyle(fontWeight: FontWeight.bold)),
+        title:
+            Text(titulo, style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4),
           child: Text(descricao),

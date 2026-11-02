@@ -5,6 +5,9 @@ import 'package:prep_manager/models/shopping_item.dart';
 import 'package:prep_manager/services/item_service.dart';
 import 'package:prep_manager/utils/constants.dart';
 import 'package:prep_manager/utils/helpers.dart';
+import 'package:prep_manager/widgets/fundo_scaffold.dart';
+import 'package:prep_manager/widgets/vidro.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class ShoppingListScreen extends StatelessWidget {
   const ShoppingListScreen({super.key});
@@ -13,44 +16,77 @@ class ShoppingListScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final shoppingBox = Hive.box<ShoppingItem>('shopping_list');
 
-    return Scaffold(
+    return FundoScaffold(
       appBar: AppBar(
-        title: const Text('Lista de Compras'),
+        centerTitle: true, // Centraliza o título
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.format_list_numbered_sharp, // Ícone de carrinho de compras
+              color: Color(0xFF07A35D), // Mesmo verde do app
+              size: 26,
+            ),
+            const SizedBox(width: 8), // Espaço entre o ícone e o texto
+            Text(
+              'Lista de Compras',
+              style: GoogleFonts.rochester(
+                fontWeight: FontWeight.bold,
+                fontSize: 22,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ],
+        ),
       ),
       body: ValueListenableBuilder(
         valueListenable: shoppingBox.listenable(),
         builder: (context, Box<ShoppingItem> box, _) {
           if (box.isEmpty) {
-            return const Center(
-              child: Text(
-                'Sua lista está vazia.\nAdicione um item!',
-                textAlign: TextAlign.center,
+            return Center(
+              child: Vidro(
+                margin: const EdgeInsets.all(24),
+                borderRadius: BorderRadius.circular(24),
+                child: const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Text(
+                    'Sua lista está vazia.\nAdicione um item!',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
               ),
             );
           }
 
           return ListView.builder(
+            // Espaço embaixo para o botão flutuante não cobrir o último item
+            padding: const EdgeInsets.fromLTRB(0, 8, 0, 96),
             itemCount: box.length,
             itemBuilder: (context, index) {
               final item = box.getAt(index)!;
               final cor = CategoriasApp.corDe(item.categoria);
 
-              return CheckboxListTile(
-                secondary: Icon(CategoriasApp.iconeDe(item.categoria), color: cor),
-                title: Text(item.name),
-                subtitle: Text('Qtd: ${item.quantity} ${item.unidade}'),
-                value: item.isBought,
-                onChanged: (bool? value) async {
-                  if (value != true) return;
-                  await _marcarComoComprado(context, item);
-                },
+              return Vidro(
+                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                borderRadius: BorderRadius.circular(16),
+                child: CheckboxListTile(
+                  secondary:
+                      Icon(CategoriasApp.iconeDe(item.categoria), color: cor),
+                  title: Text(item.name),
+                  subtitle: Text('Qtd: ${item.quantity} ${item.unidade}'),
+                  value: item.isBought,
+                  onChanged: (bool? value) async {
+                    if (value != true) return;
+                    await _marcarComoComprado(context, item);
+                  },
+                ),
               );
             },
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        child: const Icon(Icons.add),
+      floatingActionButton: FabVidro(
+        icone: Icons.add,
         onPressed: () => _showAddItemDialog(context, shoppingBox),
       ),
     );
@@ -59,7 +95,8 @@ class ShoppingListScreen extends StatelessWidget {
   /// Passa o item comprado para a Dispensa e remove da lista de compras.
   /// Se já existir na Dispensa um item com o mesmo nome, categoria e unidade,
   /// apenas soma a quantidade (sem criar outro item).
-  Future<void> _marcarComoComprado(BuildContext context, ShoppingItem item) async {
+  Future<void> _marcarComoComprado(
+      BuildContext context, ShoppingItem item) async {
     final nome = item.name;
 
     await ItemService().adicionarOuSomar(
@@ -117,7 +154,8 @@ class ShoppingListScreen extends StatelessWidget {
                       onSelected: (Item escolhido) {
                         // Aproveita a categoria e a unidade do item da Dispensa
                         setState(() {
-                          if (CategoriasApp.nomes.contains(escolhido.categoria)) {
+                          if (CategoriasApp.nomes
+                              .contains(escolhido.categoria)) {
                             selectedCategory = escolhido.categoria;
                           }
                           if (UnidadesApp.nomes.contains(escolhido.unidade)) {
@@ -132,8 +170,8 @@ class ShoppingListScreen extends StatelessWidget {
                           controller: controller,
                           focusNode: focusNode,
                           textCapitalization: TextCapitalization.sentences,
-                          decoration:
-                              const InputDecoration(labelText: 'Nome do produto'),
+                          decoration: const InputDecoration(
+                              labelText: 'Nome do produto'),
                         );
                       },
                     ),
@@ -151,8 +189,8 @@ class ShoppingListScreen extends StatelessWidget {
                       initialValue: selectedCategory,
                       decoration: const InputDecoration(labelText: 'Categoria'),
                       items: CategoriasApp.nomes
-                          .map((e) =>
-                              DropdownMenuItem(value: e, child: Text(e)))
+                          .map(
+                              (e) => DropdownMenuItem(value: e, child: Text(e)))
                           .toList(),
                       onChanged: (val) =>
                           setState(() => selectedCategory = val!),
@@ -164,8 +202,8 @@ class ShoppingListScreen extends StatelessWidget {
                       initialValue: selectedUnit,
                       decoration: const InputDecoration(labelText: 'Unidade'),
                       items: UnidadesApp.nomes
-                          .map((e) =>
-                              DropdownMenuItem(value: e, child: Text(e)))
+                          .map(
+                              (e) => DropdownMenuItem(value: e, child: Text(e)))
                           .toList(),
                       onChanged: (val) => setState(() => selectedUnit = val!),
                     ),

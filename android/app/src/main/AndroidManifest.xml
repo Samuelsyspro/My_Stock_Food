@@ -52,7 +52,7 @@
         </receiver>
 
         <meta-data
-        android:name="com.sams.prep_manager.copyright"
+        android:name="com.Sam´s.prep_manager.copyright"
         android:value="@string/copyright" />
         
     </application>

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prep_manager/widgets/vidro.dart';
 
 /// Cartão de categoria da tela da Dispensa.
 class CategoriaCard extends StatelessWidget {
@@ -7,6 +8,7 @@ class CategoriaCard extends StatelessWidget {
   final Color cor;
   final int quantidade;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress; // só nas categorias criadas pelo usuário
 
   const CategoriaCard({
     super.key,
@@ -15,32 +17,35 @@ class CategoriaCard extends StatelessWidget {
     required this.cor,
     required this.quantidade,
     required this.onTap,
+    this.onLongPress,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icone, size: 32, color: cor),
-              const SizedBox(height: 8),
-              Text(
-                nome,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-                textAlign: TextAlign.center,
+    return Vidro(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icone, size: 32, color: cor),
+            const SizedBox(height: 8),
+            Text(
+              nome,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+              textAlign: TextAlign.center,
+            ),
+            Text(
+              '$quantidade item(ns)',
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-              Text(
-                '$quantidade item(ns)',
-                style: TextStyle(fontSize: 12, color: Colors.grey[400]),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

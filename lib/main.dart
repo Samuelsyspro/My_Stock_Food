@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
@@ -8,6 +9,7 @@ import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:prep_manager/models/item.dart';
 import 'package:prep_manager/models/shopping_item.dart';
 import 'package:prep_manager/screens/splash_screen.dart';
+import 'package:prep_manager/services/fundo_service.dart';
 import 'package:prep_manager/services/notification_service.dart';
 
 void main() async {
@@ -26,6 +28,13 @@ void main() async {
   await Hive.openBox<Item>('items');
   await Hive.openBox<ShoppingItem>('shopping_list');
   await Hive.openBox('settings'); // ajustes simples (ex.: avisos ligados)
+
+  // 4b. Sorteia a imagem de fundo desta abertura (pasta assets/background).
+  // Se algo falhar, o app abre normalmente, só sem imagem.
+  try {
+    final manifesto = await AssetManifest.loadFromAssetBundle(rootBundle);
+    await FundoService.sortear(manifesto.listAssets());
+  } catch (_) {}
 
   // 5. Inicia o app
   runApp(const PrepManagerApp());
@@ -56,23 +65,34 @@ class PrepManagerApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2E7D32),
-          brightness: Brightness.dark,
-        ),
-        appBarTheme: const AppBarTheme(
-          centerTitle: true,
-          elevation: 0,
-        ),
-        cardTheme: CardThemeData(
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      ),
+      // Segue o modo do celular: claro ou escuro
+      theme: _montarTema(Brightness.light),
+      darkTheme: _montarTema(Brightness.dark),
+      themeMode: ThemeMode.system,
       home: const SplashScreen(), // Inicia na SplashScreen
+    );
+  }
+
+  ThemeData _montarTema(Brightness brilho) {
+    return ThemeData(
+      useMaterial3: true,
+      brightness: brilho,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: const Color(0xFF2E7D32),
+        brightness: brilho,
+      ),
+      appBarTheme: const AppBarTheme(
+        centerTitle: true,
+        elevation: 0,
+        // Transparente: deixa a imagem de fundo aparecer atrás da barra
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+      ),
+      cardTheme: CardThemeData(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
     );
   }
 }

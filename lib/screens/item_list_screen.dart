@@ -5,6 +5,8 @@ import 'package:prep_manager/screens/add_edit_item_screen.dart';
 import 'package:prep_manager/services/item_service.dart';
 import 'package:prep_manager/utils/helpers.dart';
 import 'package:prep_manager/widgets/item_tile.dart';
+import 'package:prep_manager/widgets/fundo_scaffold.dart';
+import 'package:prep_manager/widgets/vidro.dart';
 
 enum OrdemLista { nome, validade, quantidade }
 
@@ -98,7 +100,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return FundoScaffold(
       appBar: AppBar(
         title: _buscando
             ? TextField(
@@ -150,15 +152,28 @@ class _ItemListScreenState extends State<ItemListScreen> {
 
           if (itens.isEmpty) {
             return Center(
-              child: Column(
+              child: Vidro(
+                margin: const EdgeInsets.all(24),
+                borderRadius: BorderRadius.circular(24),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey[600]),
+                  Icon(
+                    Icons.inventory_2_outlined,
+                    size: 64,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     _mensagemVazia,
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey[400], fontSize: 16),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 16,
+                    ),
                   ),
                   if (_permiteAdicionar && _busca.trim().isEmpty) ...[
                     const SizedBox(height: 8),
@@ -169,6 +184,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
                     ),
                   ],
                 ],
+              )),
               ),
             );
           }

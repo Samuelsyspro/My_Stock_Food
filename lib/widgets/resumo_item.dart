@@ -28,7 +28,13 @@ class ResumoItem extends StatelessWidget {
               valor,
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: cor),
             ),
-            Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
           ],
         ),
       ),

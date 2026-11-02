@@ -4,6 +4,8 @@ import 'package:prep_manager/models/item.dart';
 import 'package:prep_manager/services/item_service.dart';
 import 'package:prep_manager/utils/constants.dart';
 import 'package:prep_manager/utils/helpers.dart';
+import 'package:prep_manager/widgets/fundo_scaffold.dart';
+import 'package:prep_manager/widgets/vidro.dart';
 
 class AddEditItemScreen extends StatefulWidget {
   final Item? item;
@@ -30,7 +32,8 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
   String _categoria = 'Alimentos';
   DateTime? _validade;
 
-  static const categorias = CategoriasApp.nomes;
+  // Inclui as categorias criadas pelo usuário
+  List<String> get categorias => CategoriasApp.nomes;
 
   static const unidadesComuns = UnidadesApp.nomes;
 
@@ -150,7 +153,7 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return FundoScaffold(
       appBar: AppBar(
         title: Text(_isEdit ? 'Editar Item' : 'Novo Item'),
         actions: [
@@ -165,6 +168,14 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            // Todos os campos ficam sobre um painel de vidro (leitura fácil)
+            Vidro(
+              intensidade: 1.3,
+              borderRadius: BorderRadius.circular(24),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
             TextFormField(
               controller: _nomeCtrl,
               decoration: const InputDecoration(
@@ -292,7 +303,11 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
               ),
               maxLines: 3,
             ),
-            const SizedBox(height: 32),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
 
             FilledButton.icon(
               onPressed: _salvar,

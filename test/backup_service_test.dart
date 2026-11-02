@@ -5,6 +5,7 @@ import 'package:hive/hive.dart';
 import 'package:prep_manager/models/item.dart';
 import 'package:prep_manager/models/shopping_item.dart';
 import 'package:prep_manager/services/backup_service.dart';
+import 'package:prep_manager/services/categoria_service.dart';
 import 'package:prep_manager/services/item_service.dart';
 
 void main() {
@@ -17,6 +18,7 @@ void main() {
     if (!Hive.isAdapterRegistered(1)) Hive.registerAdapter(ShoppingItemAdapter());
     await Hive.openBox<Item>('items');
     await Hive.openBox<ShoppingItem>('shopping_list');
+    await Hive.openBox('settings');
   });
 
   tearDown(() async {
@@ -104,5 +106,42 @@ void main() {
 
     expect(r.itensAdicionados, 1);
     expect(r.ignorados, 1);
+  });
+
+  test('categorias criadas pelo usuário entram no backup e voltam na restauração', () async {
+    final categorias = CategoriaService();
+    await categorias.adicionar('Pets', 'pet');
+    final service = ItemService();
+    await service.add(service.criarNovo(
+      nome: 'Ração',
+      categoria: 'Pets',
+      quantidade: 2,
+      unidade: 'kg',
+    ));
+    final texto = BackupService().exportar();
+
+    // Simula um celular novo: sem itens e sem a categoria
+    await Hive.box<Item>('items').clear();
+    await Hive.box('settings').clear();
+    expect(CategoriaService().listar(), isEmpty);
+
+    final r = await BackupService().importar(texto);
+
+    expect(r.categoriasAdicionadas, 1);
+    expect(CategoriaService().buscar('Pets')!.icone, 'pet');
+    expect(ItemService().getByCategoria('Pets').single.nome, 'Ração');
+  });
+
+  test('backup antigo (sem lista de categorias) recria a categoria dos itens', () async {
+    const texto = '''
+    {"app":"prep_manager","versao":1,
+     "itens":[{"id":"1","nome":"Adubo","categoria":"Jardim","quantidade":1}],
+     "compras":[]}''';
+
+    final r = await BackupService().importar(texto);
+
+    expect(r.itensAdicionados, 1);
+    expect(r.categoriasAdicionadas, 1);
+    expect(CategoriaService().buscar('Jardim'), isNotNull);
   });
 }

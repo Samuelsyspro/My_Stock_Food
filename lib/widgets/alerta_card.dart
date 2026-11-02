@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prep_manager/widgets/vidro.dart';
 
 /// Cartão de alerta (itens vencidos / que vencem em breve).
 class AlertaCard extends StatelessWidget {
@@ -15,8 +16,10 @@ class AlertaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: cor.withValues(alpha: 0.15),
+    return Vidro(
+      tom: cor,
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      borderRadius: BorderRadius.circular(16),
       child: ListTile(
         leading: Icon(Icons.warning_amber_rounded, color: cor),
         title: Text(titulo, style: TextStyle(color: cor, fontWeight: FontWeight.w600)),

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:prep_manager/models/item.dart';
 import 'package:prep_manager/utils/constants.dart';
 import 'package:prep_manager/utils/helpers.dart';
+import 'package:prep_manager/widgets/vidro.dart';
 
 /// Linha de um item da Dispensa: ícone da categoria, nome, quantidade,
 /// validade e botões de − e +.
@@ -41,8 +42,9 @@ class ItemTile extends StatelessWidget {
     final cor = CategoriasApp.corDe(item.categoria);
     final local = item.localizacao;
 
-    return Card(
+    return Vidro(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      borderRadius: BorderRadius.circular(16),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: CircleAvatar(
@@ -88,7 +90,7 @@ class ItemTile extends StatelessWidget {
                 'Validade: ${_dateFormat.format(item.validade!)}',
                 style: TextStyle(
                   fontSize: 12,
-                  color: statusColor ?? Colors.grey[400],
+                  color: statusColor ?? Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
             if (item.abaixoDoMinimo)
