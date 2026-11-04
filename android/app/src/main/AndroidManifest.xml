@@ -5,7 +5,7 @@
     <uses-permission android:name="android.permission.VIBRATE"/>
 
     <application
-        android:label="Dispensa Digital"
+        android:label="Despensa Digital"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon">
         <activity
@@ -52,7 +52,7 @@
         </receiver>
 
         <meta-data
-        android:name="com.Sam´s.prep_manager.copyright"
+        android:name="com.Sams.prep_manager.copyright"
         android:value="@string/copyright" />
         
     </application>

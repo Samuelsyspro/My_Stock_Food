@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
@@ -9,7 +8,6 @@ import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:prep_manager/models/item.dart';
 import 'package:prep_manager/models/shopping_item.dart';
 import 'package:prep_manager/screens/splash_screen.dart';
-import 'package:prep_manager/services/fundo_service.dart';
 import 'package:prep_manager/services/notification_service.dart';
 
 void main() async {
@@ -24,17 +22,15 @@ void main() async {
   Hive.registerAdapter(ItemAdapter());
   Hive.registerAdapter(ShoppingItemAdapter());
 
-  // 4. Abre as caixas
-  await Hive.openBox<Item>('items');
-  await Hive.openBox<ShoppingItem>('shopping_list');
-  await Hive.openBox('settings'); // ajustes simples (ex.: avisos ligados)
+  // 4. Abre as caixas (as três ao mesmo tempo, para abrir mais rápido)
+  await Future.wait([
+    Hive.openBox<Item>('items'),
+    Hive.openBox<ShoppingItem>('shopping_list'),
+    Hive.openBox('settings'), // ajustes simples (ex.: avisos ligados)
+  ]);
 
-  // 4b. Sorteia a imagem de fundo desta abertura (pasta assets/background).
-  // Se algo falhar, o app abre normalmente, só sem imagem.
-  try {
-    final manifesto = await AssetManifest.loadFromAssetBundle(rootBundle);
-    await FundoService.sortear(manifesto.listAssets());
-  } catch (_) {}
+  // (a imagem de fundo é sorteada na SplashScreen, enquanto a imagem de
+  //  abertura aparece: assim a splash do Android sai da tela mais cedo)
 
   // 5. Inicia o app
   runApp(const PrepManagerApp());

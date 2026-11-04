@@ -48,7 +48,7 @@ flutter_launcher_icons:
 flutter_native_splash:
   background_image: assets/Inicial2.png
   fullscreen: true 
-  preserve: true
+  #preserve: true
   background_image_dark: assets/Inicial2.png
   android_12:
     color: "#07A35D"

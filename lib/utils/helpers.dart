@@ -1,4 +1,5 @@
 /// Funções pequenas e reaproveitáveis (sem depender do Flutter).
+library;
 
 /// Deixa o texto minúsculo, sem acentos e sem espaços nas pontas.
 /// Serve para comparar nomes: "Água " e "agua" viram o mesmo texto.
