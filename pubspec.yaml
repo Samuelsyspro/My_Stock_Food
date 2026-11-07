@@ -20,6 +20,12 @@ dependencies:
   flutter_slidable: ^3.1.0
   package_info_plus: ^10.2.2
   flutter_native_splash: ^2.4.4
+  # Segurança: trava do app, criptografia, 2FA e backup protegido
+  flutter_secure_storage: '>=9.2.4 <11.0.0'
+  local_auth: ^2.3.0
+  cryptography: ^2.7.0
+  crypto: ^3.0.3
+  qr_flutter: ^4.1.0
   flutter_local_notifications: ^19.0.0
   timezone: ^0.10.0
   google_fonts: ^9.0.0

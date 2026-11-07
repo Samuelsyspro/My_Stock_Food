@@ -3,8 +3,12 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <!-- Biometria (digital / rosto) para abrir o app -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
 
     <application
+        android:allowBackup="false"
+        android:fullBackupContent="false"
         android:label="Despensa Digital"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon">

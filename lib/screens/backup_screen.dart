@@ -1,13 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:prep_manager/seguranca/backup_cripto.dart';
+import 'package:prep_manager/seguranca/seguranca.dart';
+import 'package:prep_manager/seguranca/ui/config_2fa_screen.dart';
+import 'package:prep_manager/seguranca/ui/confirmar_identidade.dart';
+import 'package:prep_manager/seguranca/ui/fluxo_criar_pin.dart';
 import 'package:prep_manager/services/backup_service.dart';
 import 'package:prep_manager/services/fundo_service.dart';
 import 'package:prep_manager/services/item_service.dart';
 import 'package:prep_manager/services/notification_service.dart';
 import 'package:prep_manager/widgets/fundo_scaffold.dart';
 import 'package:prep_manager/widgets/vidro.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+class _OpcoesBackup {
+  final String senha;
+  final bool gerarCodigo;
+  const _OpcoesBackup(this.senha, this.gerarCodigo);
+}
+
+class _Credencial {
+  final String? senha;
+  final String? codigo;
+  const _Credencial({this.senha, this.codigo});
+}
+
+/// Ajustes: segurança, avisos, aparência e dados (backup).
 class BackupScreen extends StatefulWidget {
   const BackupScreen({super.key});
 
@@ -16,20 +34,48 @@ class BackupScreen extends StatefulWidget {
 }
 
 class _BackupScreenState extends State<BackupScreen> {
+  final _trava = Seguranca.instancia.trava;
+  final _bio = Seguranca.instancia.biometria;
+
+  bool _biometriaDisponivel = false;
+  bool _biometriaAtiva = false;
+  bool _tem2fa = false;
+  int _segundos = 10;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarSeguranca();
+  }
+
+  Future<void> _carregarSeguranca() async {
+    final disponivel = await _bio.biometriaDisponivel;
+    final ativa = await _trava.biometriaAtiva;
+    final doisFatores = await _trava.doisFatoresAtivo;
+    final segundos = await _trava.segundosParaTravar();
+    if (!mounted) return;
+    setState(() {
+      _biometriaDisponivel = disponivel;
+      _biometriaAtiva = ativa;
+      _tem2fa = doisFatores;
+      _segundos = segundos;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return FundoScaffold(
       appBar: AppBar(
-        centerTitle: true, // Centraliza o título
+        centerTitle: true,
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(
-              Icons.settings, // Ícone de engrenagem para Ajustes
-              color: Color(0xFF07A35D), // O verde padrão do seu app
+              Icons.settings,
+              color: Color(0xFF07A35D),
               size: 26,
             ),
-            const SizedBox(width: 8), // Espaço entre o ícone e o texto
+            const SizedBox(width: 8),
             Text(
               'Ajustes',
               style: GoogleFonts.rochester(
@@ -44,6 +90,65 @@ class _BackupScreenState extends State<BackupScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          const _Secao('Segurança'),
+          Vidro(
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            child: Column(
+              children: [
+                ListTile(
+                  contentPadding: const EdgeInsets.all(16),
+                  leading: const Icon(Icons.pin, size: 36, color: Colors.indigo),
+                  title: const Text(
+                    'Alterar PIN',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: const Text(
+                    'Confirme com o PIN atual ou com o código do autenticador (2FA).',
+                  ),
+                  onTap: _alterarPin,
+                ),
+                SwitchListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  secondary: const Icon(Icons.fingerprint, size: 36, color: Colors.teal),
+                  title: const Text(
+                    'Abrir com digital ou rosto',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(_biometriaDisponivel
+                      ? 'O PIN continua funcionando sempre.'
+                      : 'Cadastre uma digital ou um rosto nas configurações do celular.'),
+                  value: _biometriaAtiva,
+                  onChanged: _biometriaDisponivel ? _alternarBiometria : null,
+                ),
+                SwitchListTile(
+                  contentPadding: const EdgeInsets.all(16),
+                  secondary: const Icon(Icons.shield_outlined, size: 36, color: Colors.deepPurple),
+                  title: const Text(
+                    'Verificação em duas etapas (2FA)',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(_tem2fa
+                      ? 'Ativa. O código do autenticador também protege o backup.'
+                      : 'Use um app como o Google Authenticator para recuperar o PIN e proteger o backup.'),
+                  value: _tem2fa,
+                  onChanged: _alternar2fa,
+                ),
+                ListTile(
+                  contentPadding: const EdgeInsets.all(16),
+                  leading: const Icon(Icons.timer_outlined, size: 36, color: Colors.orange),
+                  title: const Text(
+                    'Travar o app depois de',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    'Quando o app fica em segundo plano: ${_rotuloTempo(_segundos)}.',
+                  ),
+                  onTap: _escolherTempo,
+                ),
+              ],
+            ),
+          ),
+          const _Secao('Avisos e aparência'),
           Vidro(
             margin: const EdgeInsets.symmetric(vertical: 4),
             child: Column(
@@ -82,8 +187,7 @@ class _BackupScreenState extends State<BackupScreen> {
             margin: const EdgeInsets.symmetric(vertical: 4),
             child: SwitchListTile(
               contentPadding: const EdgeInsets.all(16),
-              secondary:
-                  const Icon(Icons.wallpaper, size: 36, color: Colors.teal),
+              secondary: const Icon(Icons.wallpaper, size: 36, color: Colors.teal),
               title: const Text(
                 'Imagem de fundo',
                 style: TextStyle(fontWeight: FontWeight.bold),
@@ -98,14 +202,15 @@ class _BackupScreenState extends State<BackupScreen> {
               },
             ),
           ),
+          const _Secao('Dados'),
           _Opcao(
-            icone: Icons.copy_all,
+            icone: Icons.lock_outline,
             cor: Colors.blue,
-            titulo: 'Copiar backup',
+            titulo: 'Copiar backup protegido',
             descricao:
-                'Copia todos os seus dados em texto. Cole em um lugar seguro '
-                '(Notas, e-mail, WhatsApp para você mesmo...).',
-            onTap: () => _copiarBackup(context),
+                'Cria um texto criptografado com uma senha só do backup. '
+                'Cole em um lugar seguro (Notas, e-mail, WhatsApp para você mesmo...).',
+            onTap: _copiarBackup,
           ),
           _Opcao(
             icone: Icons.restore,
@@ -114,7 +219,7 @@ class _BackupScreenState extends State<BackupScreen> {
             descricao:
                 'Cole o texto de um backup. Nada é apagado: itens iguais são '
                 'atualizados e os novos são adicionados.',
-            onTap: () => _restaurarBackup(context),
+            onTap: _restaurarBackup,
           ),
           _Opcao(
             icone: Icons.merge_type,
@@ -130,34 +235,372 @@ class _BackupScreenState extends State<BackupScreen> {
     );
   }
 
+  // ---------------------------------------------------------------- util
+
+  void _mensagem(String texto) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(texto)));
+  }
+
+  void _mostrarProgresso(String texto) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Row(
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(width: 20),
+              Expanded(child: Text(texto)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _fecharProgresso() {
+    if (mounted) Navigator.of(context, rootNavigator: true).pop();
+  }
+
+  String _rotuloTempo(int segundos) {
+    if (segundos <= 0) return 'imediatamente';
+    if (segundos < 60) return '$segundos segundos';
+    if (segundos == 60) return '1 minuto';
+    return '${segundos ~/ 60} minutos';
+  }
+
+  // ----------------------------------------------------------- segurança
+
+  Future<void> _alterarPin() async {
+    final ok = await confirmarIdentidade(
+      context,
+      motivo: 'Para alterar o PIN, confirme com o PIN atual ou com o código do autenticador.',
+      permitirEscolha: true,
+    );
+    if (!ok || !mounted) return;
+
+    final alterado = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const NovoPinScreen()),
+    );
+    if (alterado == true && mounted) _mensagem('PIN alterado.');
+  }
+
+  Future<void> _alternarBiometria(bool ativar) async {
+    if (ativar) {
+      final ok = await _bio.autenticarBiometria('Confirme para ativar a biometria');
+      if (!ok) return;
+    }
+    await _trava.definirBiometria(ativar);
+    await _carregarSeguranca();
+  }
+
+  Future<void> _alternar2fa(bool ativar) async {
+    if (ativar) {
+      final ativado = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(builder: (_) => const Config2faScreen()),
+      );
+      if (ativado == true && mounted) {
+        _mensagem('Verificação em duas etapas ativada.');
+      }
+    } else {
+      final ok = await confirmarIdentidade(
+        context,
+        motivo: 'Para desativar o 2FA, informe o código do autenticador.',
+      );
+      if (!ok) return;
+      await _trava.desativarDoisFatores();
+      if (mounted) _mensagem('Verificação em duas etapas desativada.');
+    }
+    await _carregarSeguranca();
+  }
+
+  Future<void> _escolherTempo() async {
+    const opcoes = [0, 10, 30, 60, 300];
+    final escolhido = await showDialog<int>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Travar o app depois de'),
+        children: [
+          for (final s in opcoes)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, s),
+              child: Text(
+                _rotuloTempo(s)[0].toUpperCase() + _rotuloTempo(s).substring(1),
+                style: TextStyle(
+                  fontWeight: s == _segundos ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+    if (escolhido == null) return;
+    await _trava.definirSegundosParaTravar(escolhido);
+    await _carregarSeguranca();
+  }
+
+  // -------------------------------------------------------------- avisos
+
   Future<void> _alternarAvisos(bool valor) async {
     final resultado = await NotificationService.instance.definirAtivado(valor);
     if (!mounted) return;
     setState(() {});
     if (valor && !resultado) {
       _mensagem(
-        context,
         'Permissão negada. Ative as notificações do app nas configurações do celular.',
       );
     }
   }
 
-  void _mensagem(BuildContext context, String texto) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(texto)));
-  }
+  // -------------------------------------------------------------- backup
 
-  Future<void> _copiarBackup(BuildContext context) async {
-    final texto = BackupService().exportar();
-    await Clipboard.setData(ClipboardData(text: texto));
-    if (context.mounted) {
-      _mensagem(context, 'Backup copiado! Cole em um lugar seguro.');
+  Future<void> _copiarBackup() async {
+    final ok = await confirmarIdentidade(
+      context,
+      motivo: _tem2fa
+          ? 'Para gerar o backup, informe o código do autenticador.'
+          : 'Para gerar o backup, digite o seu PIN.',
+    );
+    if (!ok || !mounted) return;
+
+    final opcoes = await _pedirSenhaDoBackup();
+    if (opcoes == null || !mounted) return;
+
+    _mostrarProgresso('Protegendo o backup...');
+    final BackupCifrado backup;
+    try {
+      backup = await BackupService().exportarProtegido(
+        opcoes.senha,
+        gerarCodigoRecuperacao: opcoes.gerarCodigo,
+      );
+    } on BackupException catch (e) {
+      _fecharProgresso();
+      if (mounted) _mensagem(e.mensagem);
+      return;
+    } catch (e) {
+      _fecharProgresso();
+      if (mounted) _mensagem('Não foi possível gerar o backup: $e');
+      return;
+    }
+    _fecharProgresso();
+
+    await Clipboard.setData(ClipboardData(text: backup.texto));
+    if (!mounted) return;
+    if (backup.codigoRecuperacao != null) {
+      await _mostrarCodigoRecuperacao(backup.codigoRecuperacao!);
+    }
+    if (mounted) {
+      _mensagem('Backup protegido copiado. Cole em um lugar seguro.');
     }
   }
 
-  Future<void> _restaurarBackup(BuildContext context) async {
-    final controller = TextEditingController();
+  Future<_OpcoesBackup?> _pedirSenhaDoBackup() {
+    final senhaCtrl = TextEditingController();
+    final confirmarCtrl = TextEditingController();
+    var gerarCodigo = true;
+    var ocultar = true;
+    String? erro;
 
-    final texto = await showDialog<String>(
+    return showDialog<_OpcoesBackup>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: const Text('Senha do backup'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.red.withValues(alpha: 0.5)),
+                  ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.warning_amber_rounded, color: Colors.red),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'ATENÇÃO: esta senha NÃO tem recuperação. Se você '
+                          'esquecê-la, ninguém consegue abrir este backup, nem '
+                          'o app e nem o suporte. Anote em um lugar seguro.',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: senhaCtrl,
+                  obscureText: ocultar,
+                  decoration: InputDecoration(
+                    labelText: 'Senha do backup (mínimo 8 caracteres)',
+                    suffixIcon: IconButton(
+                      icon: Icon(ocultar ? Icons.visibility : Icons.visibility_off),
+                      onPressed: () => setD(() => ocultar = !ocultar),
+                    ),
+                  ),
+                ),
+                TextField(
+                  controller: confirmarCtrl,
+                  obscureText: ocultar,
+                  decoration: InputDecoration(
+                    labelText: 'Repita a senha',
+                    errorText: erro,
+                  ),
+                ),
+                CheckboxListTile(
+                  value: gerarCodigo,
+                  onChanged: (v) => setD(() => gerarCodigo = v ?? true),
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  title: const Text('Gerar também um código de recuperação'),
+                  subtitle: Text(gerarCodigo
+                      ? 'Abre o backup se você esquecer a senha. Aparece uma única vez: anote.'
+                      : 'Sem o código, esquecer a senha significa perder este backup.'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final problema = BackupProtegido.validarSenha(senhaCtrl.text);
+                if (problema != null) {
+                  setD(() => erro = problema);
+                } else if (senhaCtrl.text != confirmarCtrl.text) {
+                  setD(() => erro = 'As senhas são diferentes.');
+                } else {
+                  Navigator.pop(ctx, _OpcoesBackup(senhaCtrl.text, gerarCodigo));
+                }
+              },
+              child: const Text('Continuar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _mostrarCodigoRecuperacao(String codigo) {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Código de recuperação'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Anote este código agora, em papel ou em um gerenciador de senhas. '
+              'Ele aparece UMA ÚNICA VEZ e não dá para consultar depois. '
+              'Quem tiver o backup e este código consegue abri-lo.',
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: SelectableText(
+                codigo,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: codigo));
+              if (ctx.mounted) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('Código copiado.')),
+                );
+              }
+            },
+            child: const Text('Copiar o código'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Já anotei'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _restaurarBackup() async {
+    final ok = await confirmarIdentidade(
+      context,
+      motivo: _tem2fa
+          ? 'Para restaurar um backup, informe o código do autenticador.'
+          : 'Para restaurar um backup, digite o seu PIN.',
+    );
+    if (!ok || !mounted) return;
+
+    final texto = await _pedirTextoDoBackup();
+    if (texto == null || texto.trim().isEmpty || !mounted) return;
+
+    try {
+      final ResultadoImportacao r;
+      if (BackupProtegido.ehProtegido(texto)) {
+        final credencial = await _pedirCredencial(
+          temCodigo: BackupProtegido.temCodigoRecuperacao(texto),
+        );
+        if (credencial == null || !mounted) return;
+
+        _mostrarProgresso('Abrindo o backup...');
+        try {
+          r = await BackupService().importarProtegido(
+            texto,
+            senha: credencial.senha,
+            codigoRecuperacao: credencial.codigo,
+          );
+        } finally {
+          _fecharProgresso();
+        }
+      } else {
+        final seguir = await _confirmarBackupSemProtecao();
+        if (!seguir || !mounted) return;
+        r = await BackupService().importar(texto);
+      }
+
+      if (!mounted) return;
+      _mensagem(
+        'Backup restaurado: ${r.itensAdicionados} item(ns) novo(s), '
+        '${r.itensAtualizados} atualizado(s), '
+        '${r.comprasAdicionadas} na lista de compras'
+        '${r.categoriasAdicionadas > 0 ? ', ${r.categoriasAdicionadas} categoria(s)' : ''}'
+        '${r.ignorados > 0 ? ', ${r.ignorados} ignorado(s)' : ''}.',
+      );
+    } on BackupException catch (e) {
+      if (mounted) _mensagem(e.mensagem);
+    } on FormatException catch (e) {
+      if (mounted) _mensagem(e.message);
+    } catch (e) {
+      if (mounted) _mensagem('Erro ao restaurar: $e');
+    }
+  }
+
+  Future<String?> _pedirTextoDoBackup() {
+    final controller = TextEditingController();
+    return showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Restaurar backup'),
@@ -193,31 +636,103 @@ class _BackupScreenState extends State<BackupScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('Continuar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<_Credencial?> _pedirCredencial({required bool temCodigo}) {
+    final senhaCtrl = TextEditingController();
+    final codigoCtrl = TextEditingController();
+    var usarCodigo = false;
+    var ocultar = true;
+
+    return showDialog<_Credencial>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: const Text('Backup protegido'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (!usarCodigo)
+                TextField(
+                  controller: senhaCtrl,
+                  obscureText: ocultar,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: 'Senha do backup',
+                    suffixIcon: IconButton(
+                      icon: Icon(ocultar ? Icons.visibility : Icons.visibility_off),
+                      onPressed: () => setD(() => ocultar = !ocultar),
+                    ),
+                  ),
+                )
+              else
+                TextField(
+                  controller: codigoCtrl,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: const InputDecoration(
+                    labelText: 'Código de recuperação',
+                    hintText: 'XXXX-XXXX-XXXX-...',
+                  ),
+                ),
+              if (temCodigo)
+                TextButton(
+                  onPressed: () => setD(() => usarCodigo = !usarCodigo),
+                  child: Text(usarCodigo
+                      ? 'Usar a senha do backup'
+                      : 'Esqueci a senha: usar o código de recuperação'),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(
+                ctx,
+                usarCodigo
+                    ? _Credencial(codigo: codigoCtrl.text)
+                    : _Credencial(senha: senhaCtrl.text),
+              ),
+              child: const Text('Restaurar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<bool> _confirmarBackupSemProtecao() async {
+    final r = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Backup sem proteção'),
+        content: const Text(
+          'Este backup é de uma versão antiga e não tem senha: qualquer pessoa '
+          'que tenha o texto consegue ler os seus dados. Restaurar mesmo assim? '
+          'Depois, gere um backup protegido novo e apague o antigo.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Restaurar'),
           ),
         ],
       ),
     );
-    // (sem dispose aqui: o diálogo ainda está animando a saída)
-
-    if (texto == null || texto.trim().isEmpty) return;
-
-    try {
-      final r = await BackupService().importar(texto);
-      if (!context.mounted) return;
-      _mensagem(
-        context,
-        'Backup restaurado: ${r.itensAdicionados} item(ns) novo(s), '
-        '${r.itensAtualizados} atualizado(s), '
-        '${r.comprasAdicionadas} na lista de compras'
-        '${r.categoriasAdicionadas > 0 ? ', ${r.categoriasAdicionadas} categoria(s)' : ''}'
-        '${r.ignorados > 0 ? ', ${r.ignorados} ignorado(s)' : ''}.',
-      );
-    } on FormatException catch (e) {
-      if (context.mounted) _mensagem(context, e.message);
-    } catch (e) {
-      if (context.mounted) _mensagem(context, 'Erro ao restaurar: $e');
-    }
+    return r == true;
   }
 
   Future<void> _unirDuplicados(BuildContext context) async {
@@ -244,12 +759,33 @@ class _BackupScreenState extends State<BackupScreen> {
     if (confirmar != true) return;
 
     final removidos = await ItemService().unirDuplicados();
-    if (!context.mounted) return;
+    if (!mounted) return;
     _mensagem(
-      context,
       removidos == 0
           ? 'Nenhum item duplicado encontrado.'
           : '$removidos item(ns) duplicado(s) unido(s).',
+    );
+  }
+}
+
+class _Secao extends StatelessWidget {
+  final String titulo;
+
+  const _Secao(this.titulo);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 16, 4, 4),
+      child: Text(
+        titulo.toUpperCase(),
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1.2,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
     );
   }
 }
@@ -276,8 +812,7 @@ class _Opcao extends StatelessWidget {
       child: ListTile(
         contentPadding: const EdgeInsets.all(16),
         leading: Icon(icone, size: 36, color: cor),
-        title:
-            Text(titulo, style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(titulo, style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4),
           child: Text(descricao),

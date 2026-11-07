@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:hive/hive.dart';
 import 'package:prep_manager/models/item.dart';
 import 'package:prep_manager/models/shopping_item.dart';
+import 'package:prep_manager/seguranca/backup_cripto.dart';
 import 'package:prep_manager/services/categoria_service.dart';
 import 'package:prep_manager/utils/helpers.dart';
 
@@ -41,6 +42,39 @@ class BackupService {
     return const JsonEncoder.withIndent('  ').convert(dados);
   }
 
+  /// Gera o backup protegido por senha (e, se pedido, com código de recuperação).
+  Future<BackupCifrado> exportarProtegido(
+    String senha, {
+    bool gerarCodigoRecuperacao = true,
+    int iteracoes = BackupProtegido.iteracoesPadrao,
+    bool isolado = true,
+  }) {
+    return BackupProtegido.proteger(
+      exportar(),
+      senha,
+      gerarCodigoRecuperacao: gerarCodigoRecuperacao,
+      iteracoes: iteracoes,
+      isolado: isolado,
+    );
+  }
+
+  /// Restaura um backup protegido, usando a senha OU o código de recuperação.
+  /// Lança [BackupException] se a senha/código estiver errado.
+  Future<ResultadoImportacao> importarProtegido(
+    String texto, {
+    String? senha,
+    String? codigoRecuperacao,
+    bool isolado = true,
+  }) async {
+    final aberto = await BackupProtegido.abrir(
+      texto,
+      senha: senha,
+      codigoRecuperacao: codigoRecuperacao,
+      isolado: isolado,
+    );
+    return importar(aberto);
+  }
+
   /// Restaura um backup. Não apaga nada do que já existe:
   /// - categorias criadas pelo usuário que faltam são recriadas;
   /// - item com o mesmo id é atualizado; os demais são adicionados;
@@ -52,6 +86,10 @@ class BackupService {
       decodificado = jsonDecode(texto);
     } catch (_) {
       throw const FormatException('O texto não é um backup válido.');
+    }
+    if (decodificado is Map && decodificado['formato'] == BackupProtegido.formato) {
+      throw const FormatException(
+          'Este backup é protegido. Informe a senha (ou o código de recuperação).');
     }
     if (decodificado is! Map || decodificado['app'] != 'prep_manager') {
       throw const FormatException('Esse texto não é um backup do Dispensa Digital.');
