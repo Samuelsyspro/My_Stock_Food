@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:prep_manager/models/item.dart';
 import 'package:prep_manager/utils/constants.dart';
 import 'package:prep_manager/utils/helpers.dart';
-import 'package:prep_manager/widgets/vidro.dart';
+import 'package:prep_manager/widgets/superficie.dart';
 
 /// Linha de um item da Dispensa: ícone da categoria, nome, quantidade,
 /// validade e botões de − e +.
@@ -42,7 +42,7 @@ class ItemTile extends StatelessWidget {
     final cor = CategoriasApp.corDe(item.categoria);
     final local = item.localizacao;
 
-    return Vidro(
+    return Superficie(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       borderRadius: BorderRadius.circular(16),
       child: ListTile(

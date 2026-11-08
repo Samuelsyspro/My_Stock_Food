@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prep_manager/widgets/aviso.dart';
 import 'package:intl/intl.dart';
 import 'package:prep_manager/models/item.dart';
 import 'package:prep_manager/services/item_service.dart';
@@ -6,6 +7,7 @@ import 'package:prep_manager/utils/constants.dart';
 import 'package:prep_manager/utils/helpers.dart';
 import 'package:prep_manager/widgets/fundo_scaffold.dart';
 import 'package:prep_manager/widgets/vidro.dart';
+import 'package:prep_manager/widgets/superficie.dart';
 
 class AddEditItemScreen extends StatefulWidget {
   final Item? item;
@@ -115,23 +117,20 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao salvar: $e')),
-        );
+        await mostrarAviso(context, 'Erro ao salvar: $e', tipo: TipoAviso.erro);
       }
       return;
     }
 
     if (mounted) {
       if (foiParaListaDeCompras) {
-        // O aviso continua na tela anterior depois que esta fecha
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '"${_nomeCtrl.text.trim()}" está no estoque mínimo e foi para a lista de compras',
-            ),
-          ),
+        // Mostra o aviso antes de fechar a tela
+        await mostrarAviso(
+          context,
+          '"${_nomeCtrl.text.trim()}" está no estoque mínimo e foi para a lista de compras.',
+          titulo: 'Lista de compras',
         );
+        if (!mounted) return;
       }
       Navigator.pop(context, true);
     }
@@ -169,8 +168,7 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
           padding: const EdgeInsets.all(16),
           children: [
             // Todos os campos ficam sobre um painel de vidro (leitura fácil)
-            Vidro(
-              intensidade: 1.3,
+            Superficie(
               borderRadius: BorderRadius.circular(24),
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -309,13 +307,11 @@ class _AddEditItemScreenState extends State<AddEditItemScreen> {
             ),
             const SizedBox(height: 24),
 
-            FilledButton.icon(
+            BotaoVidro(
+              texto: _isEdit ? 'Atualizar' : 'Adicionar ao estoque',
+              icone: Icons.save,
+              larguraTotal: true,
               onPressed: _salvar,
-              icon: const Icon(Icons.save),
-              label: Text(_isEdit ? 'Atualizar' : 'Adicionar ao estoque'),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(50),
-              ),
             ),
           ],
         ),

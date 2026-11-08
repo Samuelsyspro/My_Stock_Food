@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:prep_manager/widgets/vidro.dart';
+import 'package:prep_manager/widgets/superficie.dart';
 
 /// Cartão de categoria da tela da Dispensa.
 class CategoriaCard extends StatelessWidget {
@@ -22,7 +22,7 @@ class CategoriaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Vidro(
+    return Superficie(
       borderRadius: BorderRadius.circular(18),
       onTap: onTap,
       onLongPress: onLongPress,

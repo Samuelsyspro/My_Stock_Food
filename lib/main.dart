@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
@@ -12,6 +13,7 @@ import 'package:prep_manager/seguranca/dados_seguros.dart';
 import 'package:prep_manager/seguranca/seguranca.dart';
 import 'package:prep_manager/seguranca/tela_erro_dados.dart';
 import 'package:prep_manager/seguranca/ui/trava_app.dart';
+import 'package:prep_manager/services/fundo_service.dart';
 import 'package:prep_manager/services/notification_service.dart';
 
 void main() async {
@@ -51,12 +53,24 @@ Future<void> _iniciarApp({bool recuperar = false}) async {
     return;
   }
 
+  // Sorteia a imagem de fundo desta abertura (modo claro e escuro) antes de
+  // abrir o app: assim a tela de bloqueio já aparece com a imagem.
+  await _sortearFundo();
+
   // O app sempre começa travado: pede o PIN (ou cria um, no primeiro uso).
   Seguranca.instancia.bloqueado.value = true;
   runApp(const PrepManagerApp());
 
   // Avisos de validade (sem esperar: se falhar, o app segue normal)
   unawaited(NotificationService.instance.iniciar());
+}
+
+/// Se algo falhar, o app abre normalmente, só sem imagem.
+Future<void> _sortearFundo() async {
+  try {
+    final manifesto = await AssetManifest.loadFromAssetBundle(rootBundle);
+    await FundoService.sortear(manifesto.listAssets());
+  } catch (_) {}
 }
 
 void _mostrarErroDados(Object erro) {

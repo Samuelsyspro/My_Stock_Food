@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prep_manager/widgets/aviso.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:prep_manager/models/item.dart';
 import 'package:prep_manager/models/shopping_item.dart';
@@ -8,6 +9,7 @@ import 'package:prep_manager/utils/helpers.dart';
 import 'package:prep_manager/widgets/fundo_scaffold.dart';
 import 'package:prep_manager/widgets/vidro.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:prep_manager/widgets/superficie.dart';
 
 class ShoppingListScreen extends StatelessWidget {
   const ShoppingListScreen({super.key});
@@ -44,7 +46,7 @@ class ShoppingListScreen extends StatelessWidget {
         builder: (context, Box<ShoppingItem> box, _) {
           if (box.isEmpty) {
             return Center(
-              child: Vidro(
+              child: Superficie(
                 margin: const EdgeInsets.all(24),
                 borderRadius: BorderRadius.circular(24),
                 child: const Padding(
@@ -66,7 +68,7 @@ class ShoppingListScreen extends StatelessWidget {
               final item = box.getAt(index)!;
               final cor = CategoriasApp.corDe(item.categoria);
 
-              return Vidro(
+              return Superficie(
                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 borderRadius: BorderRadius.circular(16),
                 child: CheckboxListTile(
@@ -111,9 +113,7 @@ class ShoppingListScreen extends StatelessWidget {
 
     // Avisa o usuário (só se a tela ainda existir)
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$nome atualizado na Dispensa!')),
-      );
+      mostrarAviso(context, '$nome atualizado na Dispensa!', tipo: TipoAviso.sucesso);
     }
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prep_manager/widgets/aviso.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:prep_manager/models/item.dart';
 import 'package:prep_manager/screens/item_list_screen.dart';
@@ -12,6 +13,7 @@ import 'package:prep_manager/widgets/seletor_icone.dart';
 import 'package:prep_manager/widgets/fundo_scaffold.dart';
 import 'package:prep_manager/widgets/vidro.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:prep_manager/widgets/superficie.dart';
 
 class DispensaScreen extends StatefulWidget {
   const DispensaScreen({super.key});
@@ -67,7 +69,7 @@ class _DispensaScreenState extends State<DispensaScreen> {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
             children: [
               // Resumo
-              Vidro(
+              Superficie(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -127,7 +129,7 @@ class _DispensaScreenState extends State<DispensaScreen> {
                 const SizedBox(height: 8),
               ],
 
-              Vidro(
+              Superficie(
                 borderRadius: BorderRadius.circular(16),
                 child: Padding(
                   padding:
@@ -277,10 +279,10 @@ class _DispensaScreenState extends State<DispensaScreen> {
 
     if (criada == true && mounted) {
       setState(() {});
-      ScaffoldMessenger.of(this.context).showSnackBar(
-        const SnackBar(
-          content: Text('Categoria criada! Toque nela para cadastrar itens.'),
-        ),
+      mostrarAviso(
+        this.context,
+        'Categoria criada! Toque nela para cadastrar itens.',
+        tipo: TipoAviso.sucesso,
       );
     }
   }
@@ -310,9 +312,7 @@ class _DispensaScreenState extends State<DispensaScreen> {
     if (!mounted) return;
     setState(() {});
     if (mensagem != null) {
-      ScaffoldMessenger.of(this.context).showSnackBar(
-        SnackBar(content: Text(mensagem)),
-      );
+      mostrarAviso(this.context, mensagem);
     }
   }
 

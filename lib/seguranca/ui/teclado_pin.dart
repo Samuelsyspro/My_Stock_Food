@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prep_manager/widgets/vidro.dart';
 
 /// As bolinhas que mostram quantos dígitos já foram digitados.
 class PontosPin extends StatelessWidget {
@@ -112,11 +113,15 @@ class _EntradaNumericaState extends State<EntradaNumerica> {
         ),
         if (variavel) ...[
           const SizedBox(height: 12),
-          FilledButton(
-            onPressed: widget.habilitada && _valor.length >= widget.minimo
-                ? _enviar
-                : null,
-            child: const Text('OK'),
+          SizedBox(
+            width: 200,
+            child: BotaoVidro(
+              texto: 'OK',
+              larguraTotal: true,
+              onPressed: widget.habilitada && _valor.length >= widget.minimo
+                  ? _enviar
+                  : null,
+            ),
           ),
         ],
       ],
@@ -135,14 +140,15 @@ class _Tecla extends StatelessWidget {
     return SizedBox(
       width: 84,
       height: 84,
-      child: Padding(
-        padding: const EdgeInsets.all(4),
-        child: TextButton(
-          style: TextButton.styleFrom(
-            shape: const CircleBorder(),
-            padding: EdgeInsets.zero,
-          ),
+      child: Center(
+        // Sem desfoque (são 12 teclas: desfocar todas pesa e atrasa o toque)
+        // e com toque imediato, para nenhum número se perder.
+        child: BotaoVidroRedondo(
           onPressed: onPressed,
+          desfoque: 0,
+          imediato: true,
+          // Destaca a tecla sobre o painel de vidro (principalmente no claro)
+          sombra: true,
           child: filho,
         ),
       ),

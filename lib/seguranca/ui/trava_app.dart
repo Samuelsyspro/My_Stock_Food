@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:prep_manager/screens/backup_screen.dart';
-import 'package:prep_manager/seguranca/biometria_service.dart';
 import 'package:prep_manager/seguranca/controle_trava.dart';
 import 'package:prep_manager/seguranca/seguranca.dart';
+import 'package:prep_manager/seguranca/tela_do_sistema.dart';
 import 'package:prep_manager/seguranca/ui/tela_bloqueio.dart';
 
 /// Envolve o app inteiro (via MaterialApp.builder):
@@ -37,8 +36,9 @@ class _TravaAppState extends State<TravaApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState estado) {
-    // Uma tela do próprio sistema (digital, bloqueio do celular) está aberta.
-    if (BiometriaService.emAndamento) return;
+    // Uma tela do próprio sistema (digital, bloqueio do celular, escolher ou
+    // salvar arquivo) está aberta.
+    if (TelaDoSistema.aberta) return;
 
     switch (estado) {
       case AppLifecycleState.paused:
@@ -68,15 +68,8 @@ class _TravaAppState extends State<TravaApp> with WidgetsBindingObserver {
     if (mounted) setState(() => _cobrir = false);
   }
 
-  void _desbloquear({bool abrirAjustes = false}) {
+  void _desbloquear() {
     _seg.bloqueado.value = false;
-    if (abrirAjustes) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _seg.navegador.currentState?.push(
-          MaterialPageRoute(builder: (_) => const BackupScreen()),
-        );
-      });
-    }
   }
 
   @override

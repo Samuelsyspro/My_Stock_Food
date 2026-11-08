@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:prep_manager/widgets/vidro.dart';
+import 'package:prep_manager/widgets/superficie.dart';
 
 /// Cartão de alerta (itens vencidos / que vencem em breve).
 class AlertaCard extends StatelessWidget {
@@ -16,7 +16,7 @@ class AlertaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Vidro(
+    return Superficie(
       tom: cor,
       margin: const EdgeInsets.symmetric(vertical: 4),
       borderRadius: BorderRadius.circular(16),

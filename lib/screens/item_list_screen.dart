@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prep_manager/widgets/aviso.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:prep_manager/models/item.dart';
 import 'package:prep_manager/screens/add_edit_item_screen.dart';
@@ -7,6 +8,7 @@ import 'package:prep_manager/utils/helpers.dart';
 import 'package:prep_manager/widgets/item_tile.dart';
 import 'package:prep_manager/widgets/fundo_scaffold.dart';
 import 'package:prep_manager/widgets/vidro.dart';
+import 'package:prep_manager/widgets/superficie.dart';
 
 enum OrdemLista { nome, validade, quantidade }
 
@@ -152,7 +154,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
 
           if (itens.isEmpty) {
             return Center(
-              child: Vidro(
+              child: Superficie(
                 margin: const EdgeInsets.all(24),
                 borderRadius: BorderRadius.circular(24),
                 child: Padding(
@@ -177,10 +179,10 @@ class _ItemListScreenState extends State<ItemListScreen> {
                   ),
                   if (_permiteAdicionar && _busca.trim().isEmpty) ...[
                     const SizedBox(height: 8),
-                    ElevatedButton.icon(
+                    BotaoVidro(
+                      texto: 'Adicionar item',
+                      icone: Icons.add,
                       onPressed: () => _adicionar(context),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Adicionar item'),
                     ),
                   ],
                 ],
@@ -238,10 +240,10 @@ class _ItemListScreenState extends State<ItemListScreen> {
 
   void _avisarListaDeCompras(Item item) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('"${item.nome}" está acabando e foi para a lista de compras'),
-      ),
+    mostrarAviso(
+      context,
+      '"${item.nome}" está acabando e foi para a lista de compras.',
+      titulo: 'Lista de compras',
     );
   }
 

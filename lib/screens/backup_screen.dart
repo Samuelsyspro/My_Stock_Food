@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:prep_manager/widgets/aviso.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:prep_manager/seguranca/backup_cripto.dart';
 import 'package:prep_manager/seguranca/seguranca.dart';
 import 'package:prep_manager/seguranca/ui/config_2fa_screen.dart';
 import 'package:prep_manager/seguranca/ui/confirmar_identidade.dart';
 import 'package:prep_manager/seguranca/ui/fluxo_criar_pin.dart';
+import 'package:prep_manager/services/backup_arquivo.dart';
 import 'package:prep_manager/services/backup_service.dart';
 import 'package:prep_manager/services/fundo_service.dart';
 import 'package:prep_manager/services/item_service.dart';
 import 'package:prep_manager/services/notification_service.dart';
 import 'package:prep_manager/widgets/fundo_scaffold.dart';
-import 'package:prep_manager/widgets/vidro.dart';
+import 'package:prep_manager/widgets/superficie.dart';
 
 class _OpcoesBackup {
   final String senha;
@@ -41,11 +44,21 @@ class _BackupScreenState extends State<BackupScreen> {
   bool _biometriaAtiva = false;
   bool _tem2fa = false;
   int _segundos = 10;
+  String? _versao;
 
   @override
   void initState() {
     super.initState();
     _carregarSeguranca();
+    _carregarVersao();
+  }
+
+  Future<void> _carregarVersao() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      setState(() => _versao = '${info.version}.${info.buildNumber}');
+    } catch (_) {}
   }
 
   Future<void> _carregarSeguranca() async {
@@ -91,7 +104,7 @@ class _BackupScreenState extends State<BackupScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           const _Secao('Segurança'),
-          Vidro(
+          Superficie(
             margin: const EdgeInsets.symmetric(vertical: 4),
             child: Column(
               children: [
@@ -149,7 +162,7 @@ class _BackupScreenState extends State<BackupScreen> {
             ),
           ),
           const _Secao('Avisos e aparência'),
-          Vidro(
+          Superficie(
             margin: const EdgeInsets.symmetric(vertical: 4),
             child: Column(
               children: [
@@ -183,7 +196,7 @@ class _BackupScreenState extends State<BackupScreen> {
               ],
             ),
           ),
-          Vidro(
+          Superficie(
             margin: const EdgeInsets.symmetric(vertical: 4),
             child: SwitchListTile(
               contentPadding: const EdgeInsets.all(16),
@@ -206,19 +219,19 @@ class _BackupScreenState extends State<BackupScreen> {
           _Opcao(
             icone: Icons.lock_outline,
             cor: Colors.blue,
-            titulo: 'Copiar backup protegido',
+            titulo: 'Salvar backup protegido',
             descricao:
-                'Cria um texto criptografado com uma senha só do backup. '
-                'Cole em um lugar seguro (Notas, e-mail, WhatsApp para você mesmo...).',
-            onTap: _copiarBackup,
+                'Cria um arquivo criptografado com uma senha só do backup. '
+                'Salve no Google Drive, iCloud Drive, Downloads ou onde preferir.',
+            onTap: _gerarBackup,
           ),
           _Opcao(
             icone: Icons.restore,
             cor: Colors.green,
             titulo: 'Restaurar backup',
             descricao:
-                'Cole o texto de um backup. Nada é apagado: itens iguais são '
-                'atualizados e os novos são adicionados.',
+                'Abra o arquivo de um backup (ou cole o texto). Nada é apagado: '
+                'itens iguais são atualizados e os novos são adicionados.',
             onTap: _restaurarBackup,
           ),
           _Opcao(
@@ -230,6 +243,8 @@ class _BackupScreenState extends State<BackupScreen> {
                 'quantidades e mantendo a validade mais próxima.',
             onTap: () => _unirDuplicados(context),
           ),
+          const SizedBox(height: 24),
+          _Rodape(versao: _versao),
         ],
       ),
     );
@@ -237,9 +252,9 @@ class _BackupScreenState extends State<BackupScreen> {
 
   // ---------------------------------------------------------------- util
 
-  void _mensagem(String texto) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(texto)));
-  }
+  /// Avisos desta tela: sempre em popup (veja widgets/aviso.dart).
+  Future<void> _mensagem(String texto, {TipoAviso tipo = TipoAviso.info}) =>
+      mostrarAviso(context, texto, tipo: tipo);
 
   void _mostrarProgresso(String texto) {
     showDialog<void>(
@@ -284,7 +299,7 @@ class _BackupScreenState extends State<BackupScreen> {
     final alterado = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => const NovoPinScreen()),
     );
-    if (alterado == true && mounted) _mensagem('PIN alterado.');
+    if (alterado == true && mounted) _mensagem('PIN alterado.', tipo: TipoAviso.sucesso);
   }
 
   Future<void> _alternarBiometria(bool ativar) async {
@@ -302,7 +317,7 @@ class _BackupScreenState extends State<BackupScreen> {
         MaterialPageRoute(builder: (_) => const Config2faScreen()),
       );
       if (ativado == true && mounted) {
-        _mensagem('Verificação em duas etapas ativada.');
+        _mensagem('Verificação em duas etapas ativada.', tipo: TipoAviso.sucesso);
       }
     } else {
       final ok = await confirmarIdentidade(
@@ -311,7 +326,7 @@ class _BackupScreenState extends State<BackupScreen> {
       );
       if (!ok) return;
       await _trava.desativarDoisFatores();
-      if (mounted) _mensagem('Verificação em duas etapas desativada.');
+      if (mounted) _mensagem('Verificação em duas etapas desativada.', tipo: TipoAviso.sucesso);
     }
     await _carregarSeguranca();
   }
@@ -350,13 +365,14 @@ class _BackupScreenState extends State<BackupScreen> {
     if (valor && !resultado) {
       _mensagem(
         'Permissão negada. Ative as notificações do app nas configurações do celular.',
+        tipo: TipoAviso.erro,
       );
     }
   }
 
   // -------------------------------------------------------------- backup
 
-  Future<void> _copiarBackup() async {
+  Future<void> _gerarBackup() async {
     final ok = await confirmarIdentidade(
       context,
       motivo: _tem2fa
@@ -377,22 +393,88 @@ class _BackupScreenState extends State<BackupScreen> {
       );
     } on BackupException catch (e) {
       _fecharProgresso();
-      if (mounted) _mensagem(e.mensagem);
+      if (mounted) _mensagem(e.mensagem, tipo: TipoAviso.erro);
       return;
     } catch (e) {
       _fecharProgresso();
-      if (mounted) _mensagem('Não foi possível gerar o backup: $e');
+      if (mounted) _mensagem('Não foi possível gerar o backup: $e', tipo: TipoAviso.erro);
       return;
     }
     _fecharProgresso();
 
-    await Clipboard.setData(ClipboardData(text: backup.texto));
-    if (!mounted) return;
+    final guardado = await _guardarBackup(backup.texto);
+    if (!guardado || !mounted) return;
+
+    // O código só tem valor se o backup foi guardado: por isso vem depois.
     if (backup.codigoRecuperacao != null) {
       await _mostrarCodigoRecuperacao(backup.codigoRecuperacao!);
     }
-    if (mounted) {
-      _mensagem('Backup protegido copiado. Cole em um lugar seguro.');
+  }
+
+  /// Salva o backup em arquivo (ou copia como texto). Se a pessoa cancelar
+  /// a tela do sistema, pergunta de novo, para o backup não se perder sem querer.
+  /// Devolve true se o backup foi guardado de alguma forma.
+  Future<bool> _guardarBackup(String texto) async {
+    while (true) {
+      if (!mounted) return false;
+      final escolha = await showDialog<String>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => SimpleDialog(
+          title: const Text('Onde guardar o backup?'),
+          children: [
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, 'arquivo'),
+              child: const ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.save_alt),
+                title: Text('Salvar em arquivo (recomendado)'),
+                subtitle: Text(
+                  'Escolha a pasta: Google Drive, iCloud Drive, Downloads...',
+                ),
+              ),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, 'texto'),
+              child: const ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.copy),
+                title: Text('Copiar como texto'),
+                subtitle: Text('Para colar em Notas, e-mail ou WhatsApp.'),
+              ),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, 'descartar'),
+              child: const ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.close),
+                title: Text('Cancelar'),
+                subtitle: Text('O backup gerado será descartado.'),
+              ),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || escolha == null || escolha == 'descartar') return false;
+
+      if (escolha == 'texto') {
+        await Clipboard.setData(ClipboardData(text: texto));
+        if (mounted) {
+          await _mensagem('Backup protegido copiado. Cole em um lugar seguro.',
+              tipo: TipoAviso.sucesso);
+        }
+        return true;
+      }
+
+      try {
+        if (await BackupArquivo.salvar(texto)) {
+          if (mounted) await _mensagem('Backup protegido salvo.', tipo: TipoAviso.sucesso);
+          return true;
+        }
+        // Cancelou a tela do sistema: volta para a pergunta.
+      } catch (e) {
+        if (mounted) await _mensagem('Não foi possível salvar o arquivo: $e', tipo: TipoAviso.erro);
+      }
     }
   }
 
@@ -529,9 +611,7 @@ class _BackupScreenState extends State<BackupScreen> {
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: codigo));
               if (ctx.mounted) {
-                ScaffoldMessenger.of(ctx).showSnackBar(
-                  const SnackBar(content: Text('Código copiado.')),
-                );
+                mostrarAviso(ctx, 'Código copiado.', tipo: TipoAviso.sucesso);
               }
             },
             child: const Text('Copiar o código'),
@@ -588,13 +668,14 @@ class _BackupScreenState extends State<BackupScreen> {
         '${r.comprasAdicionadas} na lista de compras'
         '${r.categoriasAdicionadas > 0 ? ', ${r.categoriasAdicionadas} categoria(s)' : ''}'
         '${r.ignorados > 0 ? ', ${r.ignorados} ignorado(s)' : ''}.',
+        tipo: TipoAviso.sucesso,
       );
     } on BackupException catch (e) {
-      if (mounted) _mensagem(e.mensagem);
+      if (mounted) _mensagem(e.mensagem, tipo: TipoAviso.erro);
     } on FormatException catch (e) {
-      if (mounted) _mensagem(e.message);
+      if (mounted) _mensagem(e.message, tipo: TipoAviso.erro);
     } catch (e) {
-      if (mounted) _mensagem('Erro ao restaurar: $e');
+      if (mounted) _mensagem('Erro ao restaurar: $e', tipo: TipoAviso.erro);
     }
   }
 
@@ -611,21 +692,39 @@ class _BackupScreenState extends State<BackupScreen> {
               controller: controller,
               maxLines: 8,
               decoration: const InputDecoration(
-                hintText: 'Cole aqui o texto do backup',
+                hintText: 'Abra o arquivo do backup ou cole o texto aqui',
                 border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                icon: const Icon(Icons.paste),
-                label: const Text('Colar'),
-                onPressed: () async {
-                  final dados = await Clipboard.getData(Clipboard.kTextPlain);
-                  controller.text = dados?.text ?? '';
-                },
-              ),
+            Wrap(
+              spacing: 8,
+              children: [
+                TextButton.icon(
+                  icon: const Icon(Icons.folder_open),
+                  label: const Text('Abrir arquivo'),
+                  onPressed: () async {
+                    String? erro;
+                    try {
+                      final texto = await BackupArquivo.abrir();
+                      if (texto != null && ctx.mounted) Navigator.pop(ctx, texto);
+                    } on BackupException catch (e) {
+                      erro = e.mensagem;
+                    } catch (e) {
+                      erro = 'Não foi possível abrir o arquivo: $e';
+                    }
+                    if (erro != null && mounted) _mensagem(erro, tipo: TipoAviso.erro);
+                  },
+                ),
+                TextButton.icon(
+                  icon: const Icon(Icons.paste),
+                  label: const Text('Colar'),
+                  onPressed: () async {
+                    final dados = await Clipboard.getData(Clipboard.kTextPlain);
+                    controller.text = dados?.text ?? '';
+                  },
+                ),
+              ],
             ),
           ],
         ),
@@ -764,6 +863,7 @@ class _BackupScreenState extends State<BackupScreen> {
       removidos == 0
           ? 'Nenhum item duplicado encontrado.'
           : '$removidos item(ns) duplicado(s) unido(s).',
+      tipo: removidos == 0 ? TipoAviso.info : TipoAviso.sucesso,
     );
   }
 }
@@ -807,7 +907,7 @@ class _Opcao extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Vidro(
+    return Superficie(
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: ListTile(
         contentPadding: const EdgeInsets.all(16),
@@ -818,6 +918,41 @@ class _Opcao extends StatelessWidget {
           child: Text(descricao),
         ),
         onTap: onTap,
+      ),
+    );
+  }
+}
+
+/// Direitos autorais e versão do app (no fim dos Ajustes).
+class _Rodape extends StatelessWidget {
+  final String? versao;
+
+  const _Rodape({required this.versao});
+
+  @override
+  Widget build(BuildContext context) {
+    final cor = Theme.of(context).colorScheme.onSurfaceVariant;
+    return Superficie(
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        child: Column(
+          children: [
+            Text(
+              '© 2026 Samuel. Todos os direitos reservados.',
+              style: TextStyle(fontSize: 12, color: cor),
+              textAlign: TextAlign.center,
+            ),
+            if (versao != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Versão $versao',
+                style: TextStyle(fontSize: 11, color: cor),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

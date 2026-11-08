@@ -5,6 +5,7 @@ import 'package:prep_manager/seguranca/controle_trava.dart';
 import 'package:prep_manager/seguranca/seguranca.dart';
 import 'package:prep_manager/seguranca/ui/teclado_pin.dart';
 import 'package:prep_manager/widgets/fundo_scaffold.dart';
+import 'package:prep_manager/widgets/vidro.dart';
 
 /// Pede para o usuário provar quem é antes de uma ação sensível
 /// (gerar ou restaurar backup, trocar o PIN, desativar o 2FA).
@@ -75,7 +76,8 @@ class _ConfirmarIdentidadeScreenState extends State<ConfirmarIdentidadeScreen> {
         ? await _trava.esperaDoisFatoresRestante()
         : await _trava.esperaPinRestante();
     if (!mounted) return;
-    setState(() => _esperaAte = espera == null ? null : DateTime.now().add(espera));
+    setState(
+        () => _esperaAte = espera == null ? null : DateTime.now().add(espera));
 
     _relogio?.cancel();
     if (_esperaAte == null) return;
@@ -128,51 +130,74 @@ class _ConfirmarIdentidadeScreenState extends State<ConfirmarIdentidadeScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  _usar2fa ? Icons.shield_outlined : Icons.lock_outline,
-                  size: 48,
-                  color: tema.colorScheme.primary,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  _usar2fa ? 'Código do autenticador' : 'Digite o seu PIN',
-                  style: tema.textTheme.titleLarge,
-                ),
-                const SizedBox(height: 8),
-                Text(widget.motivo, textAlign: TextAlign.center),
-                if (restante != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      'Tente de novo em ${formatarEspera(restante)}',
-                      style: TextStyle(
-                        color: tema.colorScheme.error,
-                        fontWeight: FontWeight.bold,
+                // Vidro atrás dos textos: legível sobre a imagem, também no modo claro.
+                PainelVidro(
+                  gradiente: true,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _usar2fa ? Icons.shield_outlined : Icons.lock_outline,
+                        size: 48,
+                        color: tema.colorScheme.primary,
                       ),
-                    ),
-                  ),
-                SizedBox(
-                  height: 44,
-                  child: _mensagem == null
-                      ? null
-                      : Padding(
+                      const SizedBox(height: 12),
+                      Text(
+                        _usar2fa
+                            ? 'Código do autenticador'
+                            : 'Digite o seu PIN',
+                        style: tema.textTheme.titleLarge
+                            ?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(widget.motivo, textAlign: TextAlign.center),
+                      if (restante != null)
+                        Padding(
                           padding: const EdgeInsets.only(top: 8),
                           child: Text(
-                            _mensagem!,
-                            style: TextStyle(color: tema.colorScheme.error),
+                            'Tente de novo em ${formatarEspera(restante)}',
+                            style: TextStyle(
+                              color: tema.colorScheme.error,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
+                      SizedBox(
+                        height: 44,
+                        child: _mensagem == null
+                            ? null
+                            : Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                  _mensagem!,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: tema.colorScheme.error,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                      ),
+                      const SizedBox(height: 8),
+                      EntradaNumerica(
+                        key: ValueKey(_usar2fa),
+                        minimo: _usar2fa ? 6 : 4,
+                        maximo: 6,
+                        habilitada: !_verificando && _esperaAte == null,
+                        onConcluir: _verificar,
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 8),
-                EntradaNumerica(
-                  key: ValueKey(_usar2fa),
-                  minimo: _usar2fa ? 6 : 4,
-                  maximo: 6,
-                  habilitada: !_verificando && _esperaAte == null,
-                  onConcluir: _verificar,
-                ),
-                if (widget.permitirEscolha)
-                  TextButton(
+                if (widget.permitirEscolha) ...[
+                  const SizedBox(height: 12),
+                  BotaoVidro(
+                    texto: _usar2fa
+                        ? 'Usar o PIN'
+                        : 'Usar o código do autenticador',
+                    icone:
+                        _usar2fa ? Icons.lock_outline : Icons.shield_outlined,
+                    secundario: true,
                     onPressed: () {
                       setState(() {
                         _usar2fa = !_usar2fa;
@@ -180,10 +205,8 @@ class _ConfirmarIdentidadeScreenState extends State<ConfirmarIdentidadeScreen> {
                       });
                       _atualizarEspera();
                     },
-                    child: Text(_usar2fa
-                        ? 'Usar o PIN'
-                        : 'Usar o código do autenticador'),
                   ),
+                ],
               ],
             ),
           ),

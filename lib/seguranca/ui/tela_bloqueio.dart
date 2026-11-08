@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:prep_manager/widgets/fundo_scaffold.dart';
+import 'package:prep_manager/widgets/vidro.dart';
 import 'package:prep_manager/seguranca/controle_trava.dart';
 import 'package:prep_manager/seguranca/seguranca.dart';
 import 'package:prep_manager/seguranca/ui/fluxo_criar_pin.dart';
@@ -8,11 +10,11 @@ import 'package:prep_manager/seguranca/ui/teclado_pin.dart';
 
 enum _Modo {
   carregando,
+  biometria,
   pin,
   criarPin,
   recuperar,
   codigo2fa,
-  escolhaPosRecuperacao,
   novoPin,
   ofertaBiometria,
 }
@@ -22,9 +24,8 @@ enum _Modo {
 /// Usa só o teclado numérico da própria tela (sem campos de texto), então
 /// funciona mesmo estando acima do navegador do app.
 class TelaBloqueio extends StatefulWidget {
-  /// Chamado quando o usuário liberou o app. [abrirAjustes] = true leva
-  /// direto para os Ajustes (para trocar o PIN usando o 2FA).
-  final void Function({bool abrirAjustes}) onDesbloqueado;
+  /// Chamado quando o usuário liberou o app.
+  final VoidCallback onDesbloqueado;
 
   const TelaBloqueio({super.key, required this.onDesbloqueado});
 
@@ -62,11 +63,22 @@ class _TelaBloqueioState extends State<TelaBloqueio> {
     _tem2fa = await _trava.doisFatoresAtivo;
     if (!mounted) return;
 
-    setState(() => _modo = configurado ? _Modo.pin : _Modo.criarPin);
-    if (!configurado) return;
+    if (!configurado) {
+      setState(() => _modo = _Modo.criarPin);
+      return;
+    }
 
     await _atualizarEspera();
-    if (_biometriaAtiva && _esperaAte == null) _pedirBiometria();
+    if (!mounted) return;
+
+    // Com a biometria ativa (e sem espera por tentativas erradas), abre direto
+    // a digital/rosto, sem o teclado de PIN atrás. O PIN fica como opção.
+    if (_biometriaAtiva && _esperaAte == null) {
+      setState(() => _modo = _Modo.biometria);
+      _pedirBiometria();
+    } else {
+      setState(() => _modo = _Modo.pin);
+    }
   }
 
   // ------------------------------------------------------------ espera
@@ -74,7 +86,8 @@ class _TelaBloqueioState extends State<TelaBloqueio> {
   Future<void> _atualizarEspera() async {
     final espera = await _trava.esperaPinRestante();
     if (!mounted) return;
-    setState(() => _esperaAte = espera == null ? null : DateTime.now().add(espera));
+    setState(
+        () => _esperaAte = espera == null ? null : DateTime.now().add(espera));
     _relogio?.cancel();
     if (_esperaAte == null) return;
 
@@ -92,8 +105,7 @@ class _TelaBloqueioState extends State<TelaBloqueio> {
     });
   }
 
-  Duration? get _restante =>
-      _esperaAte?.difference(DateTime.now());
+  Duration? get _restante => _esperaAte?.difference(DateTime.now());
 
   // --------------------------------------------------------------- PIN
 
@@ -108,16 +120,33 @@ class _TelaBloqueioState extends State<TelaBloqueio> {
     }
     setState(() {
       _verificando = false;
-      _mensagem = r.espera != null
-          ? 'Muitas tentativas erradas.'
-          : 'PIN incorreto.';
+      _mensagem =
+          r.espera != null ? 'Muitas tentativas erradas.' : 'PIN incorreto.';
     });
     if (r.espera != null) await _atualizarEspera();
   }
 
+  /// Mostra a tela da biometria (sem o teclado de PIN) e pede a digital/rosto.
+  /// Se a pessoa cancelar ou errar, continua nessa tela, com as opções de
+  /// tentar de novo ou usar o PIN.
   Future<void> _pedirBiometria() async {
-    final ok = await _bio.autenticarBiometria('Confirme que é você para abrir o app');
-    if (ok && mounted) widget.onDesbloqueado();
+    if (_verificando) return;
+    setState(() {
+      _modo = _Modo.biometria;
+      _mensagem = null;
+      _verificando = true;
+    });
+    final ok =
+        await _bio.autenticarBiometria('Confirme que é você para abrir o app');
+    if (!mounted) return;
+    if (ok) {
+      widget.onDesbloqueado();
+      return;
+    }
+    setState(() {
+      _verificando = false;
+      _mensagem = 'Use a biometria ou digite o PIN para continuar.';
+    });
   }
 
   // -------------------------------------------------------- recuperação
@@ -136,7 +165,8 @@ class _TelaBloqueioState extends State<TelaBloqueio> {
     setState(() {
       if (ok) {
         _mensagem = null;
-        _modo = _Modo.escolhaPosRecuperacao;
+        // Identidade confirmada: vai direto criar o novo PIN.
+        _modo = _Modo.novoPin;
       } else {
         _mensagem = 'Não foi possível confirmar pelo bloqueio do celular.';
       }
@@ -165,10 +195,17 @@ class _TelaBloqueioState extends State<TelaBloqueio> {
   }
 
   Future<void> _ativarBiometria() async {
-    final ok = await _bio.autenticarBiometria('Confirme para ativar a biometria');
+    final ok =
+        await _bio.autenticarBiometria('Confirme para ativar a biometria');
     if (ok) await _trava.definirBiometria(true);
     if (mounted) widget.onDesbloqueado();
   }
+
+  /// Desistiu de trocar o PIN: volta para a tela de desbloqueio
+  /// (a da digital, se estiver ativa; senão, a do PIN). Não abre a digital
+  /// sozinho: a pessoa escolhe no botão.
+  void _voltarAoDesbloqueio() => _irPara(
+      _biometriaAtiva && _esperaAte == null ? _Modo.biometria : _Modo.pin);
 
   void _irPara(_Modo modo) => setState(() {
         _modo = modo;
@@ -179,7 +216,8 @@ class _TelaBloqueioState extends State<TelaBloqueio> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    // Mesmo fundo das outras telas: imagem sorteada (modo claro ou escuro).
+    return FundoScaffold(
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -211,49 +249,116 @@ class _TelaBloqueioState extends State<TelaBloqueio> {
                 ),
         );
 
+    // Painel de vidro atrás do conteúdo, para o texto ficar legível
+    // sobre qualquer imagem de fundo (principalmente no modo claro).
+    Widget painel(Widget filho) => PainelVidro(
+          padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
+          child: filho,
+        );
+
     switch (_modo) {
       case _Modo.carregando:
         return const Center(child: CircularProgressIndicator());
+
+      case _Modo.biometria:
+        return painel(
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.fingerprint,
+                  size: 72, color: tema.colorScheme.primary),
+              const SizedBox(height: 12),
+              Text('App protegido',
+                  style: tema.textTheme.titleLarge
+                      ?.copyWith(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              const Text(
+                'Autentique-se para usar o app.',
+                textAlign: TextAlign.center,
+              ),
+              aviso(),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: BotaoVidro(
+                      texto: 'Digital',
+                      icone: Icons.fingerprint,
+                      larguraTotal: true,
+                      onPressed: _verificando ? null : _pedirBiometria,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: BotaoVidro(
+                      texto: 'PIN',
+                      icone: Icons.dialpad,
+                      secundario: true,
+                      larguraTotal: true,
+                      onPressed: _verificando ? null : () => _irPara(_Modo.pin),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
 
       case _Modo.pin:
         final restante = _restante;
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.lock, size: 48, color: tema.colorScheme.primary),
-            const SizedBox(height: 12),
-            Text('App protegido', style: tema.textTheme.titleLarge),
-            const SizedBox(height: 8),
-            const Text('Digite o seu PIN para continuar.'),
-            if (restante != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  'Tente de novo em ${formatarEspera(restante)}',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: tema.colorScheme.error,
-                    fontWeight: FontWeight.bold,
+            PainelVidro(
+              gradiente: true,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.lock, size: 48, color: tema.colorScheme.primary),
+                  const SizedBox(height: 12),
+                  Text('App protegido', style: tema.textTheme.titleLarge),
+                  const SizedBox(height: 8),
+                  const Text('Digite o seu PIN para continuar.'),
+                  if (restante != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        'Tente de novo em ${formatarEspera(restante)}',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: tema.colorScheme.error,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  aviso(),
+                  const SizedBox(height: 8),
+                  EntradaNumerica(
+                    minimo: 4,
+                    maximo: 6,
+                    habilitada: !_verificando && _esperaAte == null,
+                    onConcluir: _aoDigitarPin,
+                    botaoExtra: _biometriaAtiva
+                        ? Center(
+                            child: BotaoVidroRedondo(
+                              onPressed:
+                                  _esperaAte == null ? _pedirBiometria : null,
+                              // Igual às teclas do PIN
+                              desfoque: 0,
+                              sombra: true,
+                              child: const Icon(Icons.fingerprint, size: 36),
+                            ),
+                          )
+                        : null,
                   ),
-                ),
+                ],
               ),
-            aviso(),
-            const SizedBox(height: 8),
-            EntradaNumerica(
-              minimo: 4,
-              maximo: 6,
-              habilitada: !_verificando && _esperaAte == null,
-              onConcluir: _aoDigitarPin,
-              botaoExtra: _biometriaAtiva
-                  ? IconButton(
-                      icon: const Icon(Icons.fingerprint, size: 36),
-                      onPressed: _esperaAte == null ? _pedirBiometria : null,
-                    )
-                  : null,
             ),
-            TextButton(
+            const SizedBox(height: 12),
+            BotaoVidro(
+              texto: 'Esqueci o PIN',
+              secundario: true,
               onPressed: () => _irPara(_Modo.recuperar),
-              child: const Text('Esqueci o PIN'),
             ),
           ],
         );
@@ -274,7 +379,7 @@ class _TelaBloqueioState extends State<TelaBloqueio> {
         );
 
       case _Modo.ofertaBiometria:
-        return Column(
+        return painel(Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.fingerprint, size: 64, color: tema.colorScheme.primary),
@@ -287,110 +392,129 @@ class _TelaBloqueioState extends State<TelaBloqueio> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-            FilledButton(
+            BotaoVidro(
+              texto: 'Ativar',
+              icone: Icons.fingerprint,
               onPressed: _ativarBiometria,
-              child: const Text('Ativar'),
             ),
-            TextButton(
+            const SizedBox(height: 12),
+            BotaoVidro(
+              texto: 'Agora não',
+              secundario: true,
               onPressed: () => widget.onDesbloqueado(),
-              child: const Text('Agora não'),
             ),
           ],
-        );
+        ));
 
       case _Modo.recuperar:
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.help_outline, size: 48, color: tema.colorScheme.primary),
-            const SizedBox(height: 12),
-            Text('Esqueci o PIN', style: tema.textTheme.titleLarge),
-            const SizedBox(height: 8),
-            const Text(
-              'Confirme que é você. Os seus dados continuam guardados.',
-              textAlign: TextAlign.center,
-            ),
-            aviso(),
-            FilledButton.icon(
-              onPressed: _recuperarComCelular,
-              icon: const Icon(Icons.phone_android),
-              label: const Text('Usar o bloqueio do celular'),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: _tem2fa ? () => _irPara(_Modo.codigo2fa) : null,
-              icon: const Icon(Icons.shield_outlined),
-              label: const Text('Usar o código do autenticador (2FA)'),
-            ),
-            if (!_tem2fa)
-              const Padding(
-                padding: EdgeInsets.only(top: 6),
-                child: Text(
-                  'O 2FA ainda não foi ativado neste app.',
-                  style: TextStyle(fontSize: 12),
+        return painel(
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.help_outline,
+                  size: 56, color: tema.colorScheme.primary),
+              const SizedBox(height: 12),
+              Text('Esqueceu o PIN?',
+                  style: tema.textTheme.titleLarge
+                      ?.copyWith(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              const Text(
+                'Selecione uma das opções abaixo para recuperar o acesso ao app.',
+                textAlign: TextAlign.center,
+              ),
+              aviso(),
+              const SizedBox(height: 8),
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: BotaoVidro(
+                        texto: 'Desbloqueio do celular',
+                        icone: Icons.phone_android,
+                        larguraTotal: true,
+                        onPressed: _recuperarComCelular,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: BotaoVidro(
+                        texto: 'Código 2FA',
+                        icone: Icons.shield_outlined,
+                        secundario: true,
+                        larguraTotal: true,
+                        onPressed:
+                            _tem2fa ? () => _irPara(_Modo.codigo2fa) : null,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            TextButton(
-              onPressed: () => _irPara(_Modo.pin),
-              child: const Text('Voltar'),
-            ),
-          ],
+              if (!_tem2fa)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: Text(
+                    'O 2FA ainda não foi ativado neste app.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ),
+              const SizedBox(height: 12),
+              BotaoVidro(
+                texto: 'Voltar',
+                icone: Icons.arrow_back,
+                secundario: true,
+                larguraTotal: true,
+                onPressed: () => _irPara(_Modo.pin),
+              ),
+            ],
+          ),
         );
 
       case _Modo.codigo2fa:
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.shield_outlined, size: 48, color: tema.colorScheme.primary),
-            const SizedBox(height: 12),
-            Text('Código do autenticador', style: tema.textTheme.titleLarge),
-            const SizedBox(height: 8),
-            const Text(
-              'Digite o código de 6 dígitos que aparece no seu app autenticador.',
-              textAlign: TextAlign.center,
-            ),
-            aviso(),
-            const SizedBox(height: 8),
-            EntradaNumerica(
-              minimo: 6,
-              maximo: 6,
-              habilitada: !_verificando,
-              onConcluir: _aoDigitarCodigo2fa,
-            ),
-            TextButton(
-              onPressed: () => _irPara(_Modo.recuperar),
-              child: const Text('Voltar'),
-            ),
-          ],
-        );
-
-      case _Modo.escolhaPosRecuperacao:
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.verified_user, size: 48, color: tema.colorScheme.primary),
-            const SizedBox(height: 12),
-            Text('Identidade confirmada', style: tema.textTheme.titleLarge),
-            const SizedBox(height: 8),
-            const Text('O que você quer fazer agora?', textAlign: TextAlign.center),
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: () => _irPara(_Modo.novoPin),
-              child: const Text('Criar um novo PIN agora'),
-            ),
-            if (_tem2fa) ...[
-              const SizedBox(height: 12),
-              OutlinedButton(
-                onPressed: () => widget.onDesbloqueado(abrirAjustes: true),
-                child: const Text('Abrir os Ajustes (trocar o PIN com o 2FA)'),
+            PainelVidro(
+              gradiente: true,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.shield_outlined,
+                      size: 48, color: tema.colorScheme.primary),
+                  const SizedBox(height: 12),
+                  Text('Código do autenticador',
+                      style: tema.textTheme.titleLarge),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Digite o código de 6 dígitos que aparece no seu app autenticador.',
+                    textAlign: TextAlign.center,
+                  ),
+                  aviso(),
+                  const SizedBox(height: 8),
+                  EntradaNumerica(
+                    minimo: 6,
+                    maximo: 6,
+                    habilitada: !_verificando,
+                    onConcluir: _aoDigitarCodigo2fa,
+                  ),
+                ],
               ),
-            ],
+            ),
+            const SizedBox(height: 12),
+            BotaoVidro(
+              texto: 'Voltar',
+              icone: Icons.arrow_back,
+              secundario: true,
+              onPressed: () => _irPara(_Modo.recuperar),
+            ),
           ],
         );
 
       case _Modo.novoPin:
         return FluxoCriarPin(
           titulo: 'Crie um novo PIN',
+          onVoltar: _voltarAoDesbloqueio,
           onConcluido: (pin) async {
             await _trava.definirPin(pin);
             if (mounted) widget.onDesbloqueado();

@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:prep_manager/widgets/aviso.dart';
 import 'package:flutter/services.dart';
 import 'package:prep_manager/seguranca/seguranca.dart';
 import 'package:prep_manager/seguranca/totp.dart';
 import 'package:prep_manager/seguranca/ui/teclado_pin.dart';
 import 'package:prep_manager/utils/app_info.dart';
 import 'package:prep_manager/widgets/fundo_scaffold.dart';
-import 'package:prep_manager/widgets/vidro.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:prep_manager/widgets/superficie.dart';
 
 /// Ativa a verificação em duas etapas (apps como Google Authenticator,
 /// Microsoft Authenticator, Aegis, 2FAS...). Devolve true ao fechar se ativou.
@@ -36,7 +37,8 @@ class _Config2faScreenState extends State<Config2faScreen> {
       _verificando = true;
       _erro = null;
     });
-    final ok = await Seguranca.instancia.trava.ativarDoisFatores(_segredo, codigo);
+    final ok =
+        await Seguranca.instancia.trava.ativarDoisFatores(_segredo, codigo);
     if (!mounted) return;
     if (ok) {
       Navigator.pop(context, true);
@@ -44,7 +46,8 @@ class _Config2faScreenState extends State<Config2faScreen> {
     }
     setState(() {
       _verificando = false;
-      _erro = 'Código incorreto. Confira se o horário do celular está automático e tente de novo.';
+      _erro =
+          'Código incorreto. Confira se o horário do celular está automático e tente de novo.';
     });
   }
 
@@ -62,9 +65,8 @@ class _Config2faScreenState extends State<Config2faScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Vidro(
+          Superficie(
             margin: const EdgeInsets.symmetric(vertical: 4),
-            intensidade: 1.3,
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -77,7 +79,8 @@ class _Config2faScreenState extends State<Config2faScreen> {
                     'Por exemplo: Google Authenticator, Microsoft Authenticator, Aegis ou 2FAS.',
                   ),
                   const SizedBox(height: 16),
-                  Text('2. Adicione uma conta', style: tema.textTheme.titleMedium),
+                  Text('2. Adicione uma conta',
+                      style: tema.textTheme.titleMedium),
                   const SizedBox(height: 4),
                   const Text(
                     'Escaneie o QR Code (se estiver usando outro aparelho) ou digite a chave abaixo no autenticador.',
@@ -106,9 +109,8 @@ class _Config2faScreenState extends State<Config2faScreen> {
                       onPressed: () async {
                         await Clipboard.setData(ClipboardData(text: _segredo));
                         if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Chave copiada.')),
-                        );
+                        mostrarAviso(context, 'Chave copiada.',
+                            tipo: TipoAviso.sucesso);
                       },
                       icon: const Icon(Icons.copy),
                       label: const Text('Copiar a chave'),
@@ -123,9 +125,8 @@ class _Config2faScreenState extends State<Config2faScreen> {
               ),
             ),
           ),
-          Vidro(
+          Superficie(
             margin: const EdgeInsets.symmetric(vertical: 4),
-            intensidade: 1.3,
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -157,7 +158,7 @@ class _Config2faScreenState extends State<Config2faScreen> {
               ),
             ),
           ),
-          Vidro(
+          Superficie(
             margin: const EdgeInsets.symmetric(vertical: 4),
             tom: tema.colorScheme.tertiary,
             child: const Padding(

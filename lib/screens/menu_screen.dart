@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:package_info_plus/package_info_plus.dart'; // Para pegar a versão
 import 'package:prep_manager/screens/backup_screen.dart';
 import 'package:prep_manager/screens/dispensa_screen.dart';
 import 'package:prep_manager/screens/shopping_list_screen.dart';
 import 'package:prep_manager/widgets/fundo_scaffold.dart';
 import 'package:prep_manager/widgets/vidro.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:prep_manager/widgets/superficie.dart';
 
 class MenuScreen extends StatefulWidget {
   const MenuScreen({super.key});
@@ -15,22 +15,6 @@ class MenuScreen extends StatefulWidget {
 }
 
 class _MenuScreenState extends State<MenuScreen> {
-  String _version = '1.0.0';
-
-  @override
-  void initState() {
-    super.initState();
-    _loadVersion();
-  }
-
-  Future<void> _loadVersion() async {
-    final packageInfo = await PackageInfo.fromPlatform();
-    if (!mounted) return;
-    setState(() {
-      _version = '${packageInfo.version}.${packageInfo.buildNumber}';
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return FundoScaffold(
@@ -56,13 +40,29 @@ class _MenuScreenState extends State<MenuScreen> {
             ),
           ],
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: Tooltip(
+              message: 'Ajustes',
+              child: BotaoVidroRedondo(
+                tamanho: 44,
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const BackupScreen()),
+                ),
+                child: const Icon(Icons.settings),
+              ),
+            ),
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Vidro(
+            Superficie(
               borderRadius: BorderRadius.circular(18),
               child: Padding(
                 padding:
@@ -134,56 +134,10 @@ class _MenuScreenState extends State<MenuScreen> {
                       );
                     },
                   ),
-                  _buildMenuCard(
-                    context,
-                    title: 'Ajustes',
-                    icon: Icons.settings,
-                    color: Colors.blue,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const BackupScreen()),
-                      );
-                    },
-                  ),
                 ],
               ),
             ),
           ],
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 16.0, left: 16.0, right: 16.0),
-          child: Vidro(
-            borderRadius: BorderRadius.circular(16),
-            child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '© 2026 Samuel. Todos os direitos reservados.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Versão $_version',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                )),
-          ),
         ),
       ),
     );
