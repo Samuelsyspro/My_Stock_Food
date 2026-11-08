@@ -159,23 +159,33 @@ class BackupProtegido {
         }
         final sal = base64Decode(envelope['senha']['sal'] as String);
         final chaveSenha = await derivarChave(senha, sal, iteracoes, isolado: isolado);
-        chaveDados = await _decifrar(
-          base64Decode(envelope['senha']['chave'] as String),
-          chaveSenha,
-        );
+        try {
+          chaveDados = await _decifrar(
+            base64Decode(envelope['senha']['chave'] as String),
+            chaveSenha,
+          );
+        } on SecretBoxAuthenticationError {
+          // A pessoa pode ter digitado o CÓDIGO DE RECUPERAÇÃO no campo da
+          // senha. Se o texto tem cara de código, tenta abrir com ele.
+          final trancada = envelope['recuperacao'];
+          if (trancada == null || !pareceCodigo(senha)) rethrow;
+          return utf8.decode(await _decifrar(
+            base64Decode(envelope['dados'] as String),
+            await _abrirComCodigo(
+              base64Decode(trancada['chave'] as String),
+              senha,
+            ),
+          ));
+        }
       } else if (codigoRecuperacao != null && codigoRecuperacao.trim().isNotEmpty) {
         final trancada = envelope['recuperacao'];
         if (trancada == null) {
           throw const BackupException(
               'Este backup não foi feito com código de recuperação.');
         }
-        final bruto = Base32.decodificar(codigoRecuperacao);
-        if (bruto.length != _tamanhoCodigo) {
-          throw const BackupException('O código de recuperação está incorreto.');
-        }
-        chaveDados = await _decifrar(
+        chaveDados = await _abrirComCodigo(
           base64Decode(trancada['chave'] as String),
-          await _chaveDoCodigo(bruto),
+          codigoRecuperacao,
         );
       } else {
         throw const BackupException('Informe a senha do backup.');
@@ -197,6 +207,92 @@ class BackupProtegido {
     } catch (_) {
       throw const BackupException('O backup está danificado ou incompleto.');
     }
+  }
+
+  // ------------------------------------------------- código de recuperação
+
+  static const String _alfabetoCodigo = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
+  /// No máximo 2^6 = 64 tentativas para os "1" ambíguos (I ou L).
+  static const int _maximoAmbiguos = 6;
+
+  /// Possíveis leituras do código digitado, corrigindo as trocas comuns de
+  /// quem anota no papel. O código só usa A-Z e 2-7, então:
+  /// 0 -> O, 8 -> B e 1 -> I ou L (testa as duas).
+  /// Lança [BackupException] se houver caracteres que não podem ser do código.
+  static List<String> leiturasDoCodigo(String digitado) {
+    final limpo = digitado
+        .toUpperCase()
+        .replaceAll(RegExp(r'[\s\-=_.]'), '')
+        .replaceAll('0', 'O')
+        .replaceAll('8', 'B');
+
+    final invalidos = limpo
+        .split('')
+        .where((c) => c != '1' && !_alfabetoCodigo.contains(c))
+        .toSet();
+    if (invalidos.isNotEmpty) {
+      throw BackupException(
+        'O código de recuperação tem caracteres que não fazem parte dele '
+        '(${invalidos.join(' ')}). Ele usa só letras de A a Z e números de 2 a 7.',
+      );
+    }
+    // 20 bytes = 32 caracteres
+    if (limpo.length != 32) {
+      throw BackupException(
+        'O código de recuperação tem 32 caracteres (8 grupos de 4), '
+        'mas foram digitados ${limpo.length}. Confira se faltou ou sobrou algum.',
+      );
+    }
+
+    final ambiguos = '1'.allMatches(limpo).length;
+    if (ambiguos == 0) return [limpo];
+    if (ambiguos > _maximoAmbiguos) {
+      throw const BackupException(
+        'O código de recuperação não usa o número 1. Troque cada "1" pela '
+        'letra I ou L, conforme anotado.',
+      );
+    }
+
+    var leituras = [''];
+    for (final c in limpo.split('')) {
+      final opcoes = c == '1' ? const ['I', 'L'] : [c];
+      leituras = [
+        for (final l in leituras)
+          for (final o in opcoes) l + o,
+      ];
+    }
+    return leituras;
+  }
+
+  /// O texto tem o formato de um código de recuperação (32 caracteres do
+  /// código, com ou sem hífens)?
+  static bool pareceCodigo(String texto) {
+    try {
+      leiturasDoCodigo(texto);
+      return true;
+    } on BackupException {
+      return false;
+    }
+  }
+
+  /// Destranca a chave dos dados com o código de recuperação, aceitando as
+  /// trocas comuns de caracteres (veja [leiturasDoCodigo]).
+  static Future<List<int>> _abrirComCodigo(
+      List<int> trancada, String digitado) async {
+    for (final leitura in leiturasDoCodigo(digitado)) {
+      final bruto = Base32.decodificar(leitura);
+      if (bruto.length != _tamanhoCodigo) continue;
+      try {
+        return await _decifrar(trancada, await _chaveDoCodigo(bruto));
+      } on SecretBoxAuthenticationError {
+        // tenta a próxima leitura
+      }
+    }
+    throw const BackupException(
+      'Código de recuperação incorreto. Confira cada grupo de 4 caracteres '
+      '(o código não usa 0, 1, 8 nem 9).',
+    );
   }
 
   // ------------------------------------------------------------ detalhes

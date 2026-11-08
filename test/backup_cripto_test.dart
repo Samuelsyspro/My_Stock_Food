@@ -124,6 +124,79 @@ void main() {
           throwsA(isA<BackupException>()));
     });
 
+    test('aceita trocas comuns de quem anota no papel (0/O, 8/B, 1/I ou L)', () async {
+      // Procura um backup cujo código tenha O, B, I e L para trocar
+      for (var tentativa = 0; tentativa < 200; tentativa++) {
+        final b = await proteger();
+        final c = b.codigoRecuperacao!;
+        if (!['O', 'B', 'I', 'L'].every(c.contains)) continue;
+        final anotado = c
+            .replaceAll('O', '0')
+            .replaceAll('B', '8')
+            .replaceAll('I', '1')
+            .replaceAll('L', '1')
+            .replaceAll('-', ' ')
+            .toLowerCase();
+        if ('1'.allMatches(anotado).length > 6) continue;
+        expect(await BackupProtegido.abrir(b.texto, codigoRecuperacao: anotado), texto,
+            reason: '$c -> $anotado');
+        return;
+      }
+      fail('não encontrou um código com O, B, I e L');
+    });
+
+    test('caractere que não existe no código dá mensagem clara (não "danificado")',
+        () async {
+      final b = await proteger();
+      final c = b.codigoRecuperacao!;
+      try {
+        await BackupProtegido.abrir(b.texto,
+            codigoRecuperacao: '${c.substring(0, c.length - 1)}9');
+        fail('deveria recusar');
+      } on BackupException catch (e) {
+        expect(e.mensagem, contains('2 a 7'));
+        expect(e.mensagem.contains('danificado'), isFalse);
+      }
+    });
+
+    test('código com caracteres faltando avisa quantos foram digitados', () async {
+      final b = await proteger();
+      final c = b.codigoRecuperacao!.replaceAll('-', '');
+      try {
+        await BackupProtegido.abrir(b.texto, codigoRecuperacao: c.substring(0, 31));
+        fail('deveria recusar');
+      } on BackupException catch (e) {
+        expect(e.mensagem, contains('31'));
+      }
+    });
+
+    test('código digitado no campo da SENHA também abre o backup', () async {
+      final b = await proteger();
+      expect(
+        await BackupProtegido.abrir(b.texto,
+            senha: b.codigoRecuperacao, isolado: false),
+        texto,
+      );
+      // ...inclusive anotado em minúsculas e sem hífens
+      expect(
+        await BackupProtegido.abrir(b.texto,
+            senha: b.codigoRecuperacao!.replaceAll('-', '').toLowerCase(),
+            isolado: false),
+        texto,
+      );
+    });
+
+    test('senha errada que não parece código continua dizendo "senha incorreta"',
+        () async {
+      final b = await proteger();
+      try {
+        await BackupProtegido.abrir(b.texto, senha: 'senha-errada-123', isolado: false);
+        fail('deveria recusar');
+      } on BackupException catch (e) {
+        expect(e.mensagem, contains('Senha incorreta'));
+      }
+    });
+
     test('backup sem código de recuperação não abre com código', () async {
       final b = await proteger(codigo: false);
       final outro = (await proteger()).codigoRecuperacao;

@@ -16,6 +16,9 @@ import 'package:prep_manager/services/notification_service.dart';
 import 'package:prep_manager/widgets/fundo_scaffold.dart';
 import 'package:prep_manager/widgets/superficie.dart';
 
+/// Onde o backup gerado foi guardado.
+enum _Destino { arquivo, texto }
+
 class _OpcoesBackup {
   final String senha;
   final bool gerarCodigo;
@@ -402,21 +405,34 @@ class _BackupScreenState extends State<BackupScreen> {
     }
     _fecharProgresso();
 
-    final guardado = await _guardarBackup(backup.texto);
-    if (!guardado || !mounted) return;
+    final destino = await _guardarBackup(backup.texto);
+    if (destino == null || !mounted) return;
 
     // O código só tem valor se o backup foi guardado: por isso vem depois.
     if (backup.codigoRecuperacao != null) {
       await _mostrarCodigoRecuperacao(backup.codigoRecuperacao!);
     }
+
+    // Copiar como texto: copia só no FIM. Se copiasse antes, o botão
+    // "Copiar o código" (acima) substituiria o backup na área de transferência.
+    if (destino == _Destino.texto && mounted) {
+      await Clipboard.setData(ClipboardData(text: backup.texto));
+      if (mounted) {
+        await _mensagem(
+          'Backup protegido copiado. Cole agora em um lugar seguro '
+          '(Notas, e-mail, WhatsApp para você mesmo...).',
+          tipo: TipoAviso.sucesso,
+        );
+      }
+    }
   }
 
-  /// Salva o backup em arquivo (ou copia como texto). Se a pessoa cancelar
-  /// a tela do sistema, pergunta de novo, para o backup não se perder sem querer.
-  /// Devolve true se o backup foi guardado de alguma forma.
-  Future<bool> _guardarBackup(String texto) async {
+  /// Pergunta onde guardar o backup e, se for em arquivo, já salva. Se a
+  /// pessoa cancelar a tela do sistema, pergunta de novo, para o backup não
+  /// se perder sem querer. Devolve null se a pessoa desistiu.
+  Future<_Destino?> _guardarBackup(String texto) async {
     while (true) {
-      if (!mounted) return false;
+      if (!mounted) return null;
       final escolha = await showDialog<String>(
         context: context,
         barrierDismissible: false,
@@ -455,21 +471,15 @@ class _BackupScreenState extends State<BackupScreen> {
           ],
         ),
       );
-      if (!mounted || escolha == null || escolha == 'descartar') return false;
+      if (!mounted || escolha == null || escolha == 'descartar') return null;
 
-      if (escolha == 'texto') {
-        await Clipboard.setData(ClipboardData(text: texto));
-        if (mounted) {
-          await _mensagem('Backup protegido copiado. Cole em um lugar seguro.',
-              tipo: TipoAviso.sucesso);
-        }
-        return true;
-      }
+      // A cópia é feita no fim (veja _gerarBackup).
+      if (escolha == 'texto') return _Destino.texto;
 
       try {
         if (await BackupArquivo.salvar(texto)) {
           if (mounted) await _mensagem('Backup protegido salvo.', tipo: TipoAviso.sucesso);
-          return true;
+          return _Destino.arquivo;
         }
         // Cancelou a tela do sistema: volta para a pergunta.
       } catch (e) {
@@ -757,8 +767,35 @@ class _BackupScreenState extends State<BackupScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Escolha explícita (antes era só um link embaixo do campo, e o
+              // código acabava sendo digitado no campo da senha).
+              if (temCodigo) ...[
+                const Text('Abrir o backup com:'),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<bool>(
+                    segments: const [
+                      ButtonSegment(
+                        value: false,
+                        icon: Icon(Icons.password),
+                        label: Text('Senha'),
+                      ),
+                      ButtonSegment(
+                        value: true,
+                        icon: Icon(Icons.key),
+                        label: Text('Código'),
+                      ),
+                    ],
+                    selected: {usarCodigo},
+                    onSelectionChanged: (s) => setD(() => usarCodigo = s.first),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               if (!usarCodigo)
                 TextField(
+                  key: const ValueKey('senha'),
                   controller: senhaCtrl,
                   obscureText: ocultar,
                   autofocus: true,
@@ -772,20 +809,20 @@ class _BackupScreenState extends State<BackupScreen> {
                 )
               else
                 TextField(
+                  key: const ValueKey('codigo'),
                   controller: codigoCtrl,
                   autofocus: true,
                   textCapitalization: TextCapitalization.characters,
+                  // O teclado não pode "corrigir" nem sugerir palavras:
+                  // qualquer letra trocada invalida o código.
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  keyboardType: TextInputType.visiblePassword,
                   decoration: const InputDecoration(
                     labelText: 'Código de recuperação',
                     hintText: 'XXXX-XXXX-XXXX-...',
+                    helperText: 'Letras de A a Z e números de 2 a 7.',
                   ),
-                ),
-              if (temCodigo)
-                TextButton(
-                  onPressed: () => setD(() => usarCodigo = !usarCodigo),
-                  child: Text(usarCodigo
-                      ? 'Usar a senha do backup'
-                      : 'Esqueci a senha: usar o código de recuperação'),
                 ),
             ],
           ),
